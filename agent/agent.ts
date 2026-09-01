@@ -1,10 +1,7 @@
 import { defineAgent } from "eve";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { wrapLanguageModel, type LanguageModelMiddleware } from "ai";
+import { gateway, wrapLanguageModel, type LanguageModelMiddleware } from "ai";
 
-const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
-
-// This model has twice collapsed into token soup mid-reply and streamed ~128k
+// This model has collapsed into token soup mid-reply and streamed ~128k
 // characters before anything stopped it. limits.maxOutputTokensPerSession does
 // not help: a provider only reports usage once a call finishes, so the runaway
 // call is always allowed to complete. Capping every call is what actually stops
@@ -19,13 +16,16 @@ const capOutputTokens: LanguageModelMiddleware = {
 };
 
 export default defineAgent({
-  // Cheap open weights: $0.08/M in, $0.16/M out. Swap the id to change models.
+  // Through the Vercel AI Gateway, so the credential is AI_GATEWAY_API_KEY (or
+  // a linked project's VERCEL_OIDC_TOKEN) and the model id can change without
+  // touching a provider package. Cheap open weights, 1M context.
   model: wrapLanguageModel({
-    model: openrouter.chat("deepseek/deepseek-v4-flash"),
+    model: gateway("deepseek/deepseek-v4-flash"),
     middleware: capOutputTokens,
   }),
-  // Not in the AI Gateway catalog, so eve can't look the window up itself.
-  modelContextWindowTokens: 1_048_576,
+  // The wrapper hides the model id from eve's catalog lookup ("gateway/…"), so
+  // the window is stated here. Catalog value for this model, not a guess.
+  modelContextWindowTokens: 1_000_000,
   reasoning: "medium",
   // Belt to the per-call cap's braces: stops a session that keeps calling.
   limits: {

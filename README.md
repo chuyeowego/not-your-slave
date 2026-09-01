@@ -29,12 +29,12 @@ followed it. Each links to its commit on GitHub. Open them in order:
 
 | Page | Commit |
 | --- | --- |
-| `01-scaffold.html` | [`e07b253`](https://github.com/chuyeow/not-your-slave/commit/e07b253) scaffold an eve agent on cheap open weights |
-| `02-mindlog.html` | [`7850d7c`](https://github.com/chuyeow/not-your-slave/commit/7850d7c) the mindlog |
-| `03-capture.html` | [`4be5d7e`](https://github.com/chuyeow/not-your-slave/commit/4be5d7e) automatic capture |
-| `04-heartbeat.html` | [`24cb9f6`](https://github.com/chuyeow/not-your-slave/commit/24cb9f6) the heartbeat |
-| `05-web-ui.html` | [`5d117e6`](https://github.com/chuyeow/not-your-slave/commit/5d117e6) the web interface |
-| `06-persistence.html` | [`054ea75`](https://github.com/chuyeow/not-your-slave/commit/054ea75) workspace sync and search |
+| `01-scaffold.html` | [`e07b253`](https://github.com/chuyeowego/not-your-slave/commit/e07b253) scaffold an eve agent on cheap open weights |
+| `02-mindlog.html` | [`7850d7c`](https://github.com/chuyeowego/not-your-slave/commit/7850d7c) the mindlog |
+| `03-capture.html` | [`4be5d7e`](https://github.com/chuyeowego/not-your-slave/commit/4be5d7e) automatic capture |
+| `04-heartbeat.html` | [`24cb9f6`](https://github.com/chuyeowego/not-your-slave/commit/24cb9f6) the heartbeat |
+| `05-web-ui.html` | [`5d117e6`](https://github.com/chuyeowego/not-your-slave/commit/5d117e6) the web interface |
+| `06-persistence.html` | [`054ea75`](https://github.com/chuyeowego/not-your-slave/commit/054ea75) workspace sync and search |
 
 ## What is where
 
