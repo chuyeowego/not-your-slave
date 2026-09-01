@@ -43,8 +43,7 @@ followed it. Each links to its commit on GitHub. Open them in order:
 | `agent/instructions.md` | who it is, and how it treats the mindlog |
 | `agent/lib/mindlog.ts` | the mindlog store (JSONL at `.data/mindlog.jsonl`) |
 | `agent/hooks/mindlog-capture.ts` | automatic capture: woke / heard / thought / said / did |
-| `agent/hooks/workspace-sync.ts` | keeps `/workspace` across sessions locally, and drops a readable mindlog copy in it |
-| `agent/sandbox/sandbox.ts` | mounts a persistent Vercel Drive at `/workspace` when deployed |
+| `agent/hooks/workspace-sync.ts` | keeps `/workspace` across sessions, and drops a readable mindlog copy in it |
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
 | `agent/schedules/think.ts` | the heartbeat, every 15 minutes |
 | `agent/channels/home.ts` | the page, `/api/mindlog`, `/api/think` |
@@ -73,11 +72,14 @@ A Vercel deployment authenticates through project OIDC, so it needs neither.
 - The mindlog and the `/workspace` archive are local files. Deploying anywhere
   with an ephemeral filesystem means swapping the functions in
   `agent/lib/mindlog.ts` and `agent/hooks/workspace-sync.ts` for a real store.
-- Locally, `/workspace` crosses sessions as one tarball with last-write-wins:
-  two sessions parking at once means the later one overwrites. On Vercel a
-  mounted Drive makes the tarball redundant. Neither mechanism protects against
-  an operator deleting a live session's container: the next park snapshots an
-  empty workspace over the archive.
+- `/workspace` crosses sessions as one tarball with last-write-wins: two
+  sessions parking at once means the later one overwrites. It also does not
+  protect against an operator deleting a live session's container, since the
+  next park snapshots an empty workspace over the archive.
+- Vercel Sandbox Drives would replace the tarball with a real mounted volume,
+  but they are in private beta: `GET /v2/sandboxes/drives` returns 403
+  ("Drives are in private beta") for this team. Until that changes, a deployment
+  needs the tarball written to Vercel Blob rather than to the local disk.
 - Away from localhost, `/eve/v1` needs HTTP Basic credentials: set `AGENT_USER`
   and `AGENT_PASS`. Without them no browser can authenticate at all, which is
   the safe direction to fail. `localDev()` keeps localhost open under
