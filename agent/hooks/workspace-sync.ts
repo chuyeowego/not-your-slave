@@ -71,6 +71,15 @@ const keep = async (_event: unknown, ctx: HookContext): Promise<void> => {
   console.info("[workspace-sync]", ctx.session.id, await snapshot(await ctx.getSandbox()));
 };
 
+// A parked session can resume, so its container stays. A completed one cannot,
+// and its container would otherwise sit there forever: every heartbeat is its
+// own session, so that is 96 idle containers a day. The workspace is already
+// packed to the host by then, so nothing is lost by stopping the compute.
+const keepAndStop = async (event: unknown, ctx: HookContext): Promise<void> => {
+  await keep(event, ctx);
+  await (await ctx.getSandbox()).stop();
+};
+
 export default defineHook({
   events: {
     async "session.started"(_event, ctx) {
@@ -83,6 +92,6 @@ export default defineHook({
     },
     // A session parks after most turns and completes when it ends for good.
     "session.waiting": keep,
-    "session.completed": keep,
+    "session.completed": keepAndStop,
   },
 });
