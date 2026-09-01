@@ -51,13 +51,19 @@ followed it. Each links to its commit on GitHub. Open them in order:
 
 ## Model
 
-`z-ai/glm-5.3-flash` through OpenRouter, at $0.075/M in and $0.25/M out. Change
-the id in `agent/agent.ts`; set `modelContextWindowTokens` to match, since eve
-cannot look up a non-Gateway model's window.
+`deepseek/deepseek-v4-flash` through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway).
+Change the id in `agent/agent.ts`; it is a Gateway catalog slug, so no provider
+package is involved. Set `modelContextWindowTokens` to match, because the
+middleware that caps output tokens hides the id from eve's catalog lookup.
 
-Put `OPENROUTER_API_KEY=...` in `.env.local`.
+Credentials, either one:
 
-Run `npm run check` for the mindlog store's self-check.
+- `AI_GATEWAY_API_KEY=vck_...` in `.env.local`. Does not expire; best for local
+  development of something meant to run unattended.
+- `eve link --project <name> --team <team>`, which pulls a `VERCEL_OIDC_TOKEN`
+  into `.env.local`. Convenient, but expires in about 12 hours.
+
+A Vercel deployment authenticates through project OIDC, so it needs neither.
 
 ## Known limits
 

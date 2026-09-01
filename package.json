@@ -16,7 +16,6 @@
     "check": "node --experimental-strip-types agent/lib/mindlog.check.ts"
   },
   "dependencies": {
-    "@openrouter/ai-sdk-provider": "^3.0.0",
     "@vercel/connect": "1.0.0",
     "ai": "^7.0.82",
     "eve": "^0.47.6",
