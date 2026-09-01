@@ -74,8 +74,9 @@ A Vercel deployment authenticates through project OIDC, so it needs neither.
   `agent/lib/mindlog.ts` and `agent/hooks/workspace-sync.ts` for a real store.
 - `/workspace` is one tarball with last-write-wins: two sessions parking at once
   means the later one overwrites. Per-session archives if that ever matters.
-- The built server (`npm start`) requires auth on `/eve/v1`, so the page will not
-  talk to it until `agent/channels/eve.ts` gets a real auth provider (or
-  `none()` for a localhost-only daemon).
+- Away from localhost, `/eve/v1` needs HTTP Basic credentials: set `AGENT_USER`
+  and `AGENT_PASS`. Without them no browser can authenticate at all, which is
+  the safe direction to fail. `localDev()` keeps localhost open under
+  `eve dev` and is ignored in production.
 - Compaction is eve's default. There is no exponential-decay trajectory
   summarization like headlong's.

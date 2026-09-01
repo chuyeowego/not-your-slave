@@ -1,15 +1,21 @@
+import { httpBasic, localDev, vercelOidc } from "eve/channels/auth";
 import { eveChannel } from "eve/channels/eve";
-import { localDev, placeholderAuth, vercelOidc } from "eve/channels/auth";
+
+const username = process.env.AGENT_USER;
+const password = process.env.AGENT_PASS;
 
 export default eveChannel({
   auth: [
-    // Lets the eve TUI and your Vercel deployments reach the deployed agent.
+    // Internal runtime, subagent and cron callers, and the eve TUI.
     vercelOidc(),
-    // Open on localhost for `eve dev` and the REPL; ignored in production.
+    // A person, in a browser. The team has other members and Vercel's own
+    // deployment protection is team-wide, so identity lives here instead.
+    // Missing credentials mean no browser can authenticate at all, which is
+    // the safe direction to fail.
+    ...(username !== undefined && password !== undefined
+      ? [httpBasic({ username, password }, { realm: "not-your-slave" })]
+      : []),
+    // Localhost during `eve dev`. Ignored in production.
     localDev(),
-    // This placeholder will not allow browser requests in production.
-    // Replace it with your app's auth provider, like Auth.js or Clerk,
-    // or use none() for a public demo.
-    placeholderAuth(),
   ],
 });
