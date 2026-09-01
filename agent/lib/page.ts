@@ -160,7 +160,7 @@ const chat = document.getElementById("chat");
 const mindlogEl = document.getElementById("mindlog");
 const statusEl = document.getElementById("status");
 const input = document.getElementById("input");
-let sessionId = localStorage.getItem("nys.session");
+let sessionId = null;
 let live = null;
 
 // The model writes markdown, so render the little of it that it actually uses.
@@ -368,28 +368,20 @@ function handle(event) {
   }
 }
 
-function post(url, message) {
-  return fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-}
-
+// Every message goes to the agent's one session, whichever that currently is.
+// The server creates it when the address has none, so the page never has to
+// reconcile an id it remembered with the one that exists.
 async function send(text) {
   bubble("me", "you", text);
   statusEl.textContent = "thinking";
 
-  let res = await post(sessionId ? "/eve/v1/session/" + sessionId : "/eve/v1/session", text);
-
-  if (res.status === 409) {
-    // The session expired or was retired. Start a new one with the same message.
-    sessionId = null;
-    localStorage.removeItem("nys.session");
-    res = await post("/eve/v1/session", text);
-  }
-
+  const res = await fetch("/api/say", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: text }),
+  });
   const started = await res.json();
+
   if (!started.ok) {
     bubble("it", "it", "[" + (started.error || res.status) + "]");
     statusEl.textContent = "error";
@@ -398,8 +390,7 @@ async function send(text) {
 
   if (started.sessionId !== sessionId) {
     sessionId = started.sessionId;
-    localStorage.setItem("nys.session", sessionId);
-    void follow(sessionId, 0);
+    void follow(sessionId, -1);
   }
 }
 
@@ -514,9 +505,8 @@ async function restore(id) {
   statusEl.textContent = "loading";
   try {
     const res = await fetch("/eve/v1/session/" + id + "/stream?startIndex=0&includeTailIndex=1");
-    if (res.status === 409) {
+    if (!res.ok) {
       sessionId = null;
-      localStorage.removeItem("nys.session");
       statusEl.textContent = "idle";
       return;
     }
@@ -530,7 +520,20 @@ async function restore(id) {
   void follow(id, -1);
 }
 
-if (sessionId !== null) void restore(sessionId);
+// The agent may already be mid-thought from a heartbeat before anyone opens
+// the page, so ask for its session rather than assuming there is none.
+void (async () => {
+  try {
+    localStorage.removeItem("nys.session"); // the server owns this now
+    const res = await fetch("/api/session");
+    const { sessionId: existing } = await res.json();
+    if (existing) {
+      sessionId = existing;
+      await restore(existing);
+    }
+  } catch {}
+})();
+
 void refreshMindlog();
 setInterval(() => {
   if (document.visibilityState === "visible") void refreshMindlog();

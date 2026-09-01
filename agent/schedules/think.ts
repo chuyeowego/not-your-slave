@@ -2,9 +2,11 @@ import { defineSchedule } from "eve/schedules";
 
 import home from "../channels/home";
 
-// The channel-local address a manual wake is sent to. eve reports it back to
-// hooks as the continuation token, namespaced by channel id ("home:heartbeat").
-export const WAKE_ADDRESS = "heartbeat";
+// The one channel-local address the agent lives at. Heartbeats and human
+// messages both go here, so they share a session: one context, one sandbox,
+// one timeline. eve reports it back to hooks as the continuation token,
+// namespaced by channel id ("home:timeline").
+export const TIMELINE = "timeline";
 
 export const HEARTBEAT = `You just woke up on your own. Nobody asked you anything.
 

@@ -6,7 +6,7 @@ import { stat } from "node:fs/promises";
 import { policy } from "../lib/auth";
 import { FILE, read } from "../lib/mindlog";
 import { PAGE } from "../lib/page";
-import { HEARTBEAT, WAKE_ADDRESS } from "../schedules/think";
+import { HEARTBEAT, TIMELINE } from "../schedules/think";
 
 // A channel's own routes are not covered by the eve channel's auth policy, so
 // each one walks the same policy itself. Returning the Response means the
@@ -17,10 +17,10 @@ const guard = async (request: Request): Promise<Response | null> => {
 };
 
 export default defineChannel({
-  // A schedule hands its wake-up here, and every wake goes to the same
-  // channel-local address, so they all land in one durable session. That is
-  // what gives the agent a sandbox whose /workspace outlives a single wake.
-  receive: async ({ message, auth }, { from }) => from(WAKE_ADDRESS).send(message, { auth }),
+  // A schedule hands its wake-up here, and it goes to the same address every
+  // human message goes to, so the agent has one session: one context, one
+  // sandbox, one timeline it can read back.
+  receive: async ({ message, auth }, { from }) => from(TIMELINE).send(message, { auth }),
 
   routes: [
     GET("/", async (request) => {
@@ -30,6 +30,32 @@ export default defineChannel({
 
     // Polled every few seconds by every open tab, so an unchanged log answers
     // 304 instead of re-shipping a hundred entries.
+    // The agent's session, if it has one yet. The page asks at load so it can
+    // replay the timeline without having to remember an id across refreshes.
+    GET("/api/session", async (request, { resolveSession }) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const session = await resolveSession(TIMELINE);
+      return Response.json({ sessionId: session?.id ?? null });
+    }),
+
+    // A human message, into the same session the heartbeat uses. `from().send`
+    // creates the session when the address has none, so there is no separate
+    // create path and nothing for the page to reconcile.
+    POST("/api/say", async (request, { from }) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const { message } = (await request.json()) as { message?: unknown };
+      if (typeof message !== "string" || message.trim().length === 0) {
+        return Response.json({ ok: false, error: "message required" }, { status: 400 });
+      }
+
+      const session = await from(TIMELINE).send(message, { auth: null });
+      return Response.json({ ok: true, sessionId: session.id });
+    }),
+
     GET("/api/mindlog", async (request) => {
       const denied = await guard(request);
       if (denied) return denied;
@@ -54,7 +80,7 @@ export default defineChannel({
       const denied = await guard(request);
       if (denied) return denied;
 
-      const session = await from(WAKE_ADDRESS).send(HEARTBEAT, { auth: null });
+      const session = await from(TIMELINE).send(HEARTBEAT, { auth: null });
       return Response.json({ sessionId: session.id });
     }),
   ],

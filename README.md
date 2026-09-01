@@ -43,10 +43,10 @@ followed it. Each links to its commit on GitHub. Open them in order:
 | `agent/instructions.md` | who it is, and how it treats the mindlog |
 | `agent/lib/mindlog.ts` | the mindlog store (JSONL at `.data/mindlog.jsonl`) |
 | `agent/hooks/mindlog-capture.ts` | automatic capture: woke / heard / thought / said / did |
-| `agent/hooks/workspace-sync.ts` | keeps `/workspace` across sessions, and drops a readable mindlog copy in it |
+| `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy in `/workspace`, and stops a completed session's sandbox |
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
 | `agent/schedules/think.ts` | the heartbeat, every 15 minutes |
-| `agent/channels/home.ts` | the page, `/api/mindlog`, `/api/think` |
+| `agent/channels/home.ts` | the page, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think` |
 | `agent/lib/page.ts` | the single-file UI |
 
 ## Model
@@ -72,14 +72,15 @@ A Vercel deployment authenticates through project OIDC, so it needs neither.
 - The mindlog and the `/workspace` archive are local files. Deploying anywhere
   with an ephemeral filesystem means swapping the functions in
   `agent/lib/mindlog.ts` and `agent/hooks/workspace-sync.ts` for a real store.
-- `/workspace` crosses sessions as one tarball with last-write-wins: two
-  sessions parking at once means the later one overwrites. It also does not
-  protect against an operator deleting a live session's container, since the
-  next park snapshots an empty workspace over the archive.
-- Vercel Sandbox Drives would replace the tarball with a real mounted volume,
-  but they are in private beta: `GET /v2/sandboxes/drives` returns 403
-  ("Drives are in private beta") for this team. Until that changes, a deployment
-  needs the tarball written to Vercel Blob rather than to the local disk.
+- The agent lives in ONE durable session, at a fixed channel address. Heartbeats
+  and human messages both go there, so they share a context and a sandbox, and
+  `/workspace` persists because the session does. Every per-session limit is off
+  in `agent/agent.ts` for that reason; the per-call output cap is the guard.
+- If that session is ever lost or reset, `/workspace` goes with it. The mindlog
+  survives, because it lives on the host outside every sandbox.
+- Vercel Sandbox Drives would give `/workspace` a life independent of the
+  session, but they are in private beta: `GET /v2/sandboxes/drives` returns 403
+  for this team.
 - Away from localhost, `/eve/v1` needs HTTP Basic credentials: set `AGENT_USER`
   and `AGENT_PASS`. Without them no browser can authenticate at all, which is
   the safe direction to fail. `localDev()` keeps localhost open under

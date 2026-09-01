@@ -1,7 +1,7 @@
 import { defineHook } from "eve/hooks";
 
 import { append } from "../lib/mindlog";
-import { WAKE_ADDRESS } from "../schedules/think";
+import { HEARTBEAT } from "../schedules/think";
 
 // Everything that happens to the agent lands in one timeline, whoever caused
 // it: a wake-up it gave itself, a human message, its own reasoning, its own
@@ -9,15 +9,11 @@ import { WAKE_ADDRESS } from "../schedules/think";
 export default defineHook({
   events: {
     async "message.received"(event, ctx) {
-      // Provenance, not prompt text: a person who pastes the heartbeat prompt
-      // into chat is still a person. Observed values: a cron dispatch reports
-      // kind "schedule"; the manual wake arrives as kind "http" with the
-      // continuation token namespaced by channel id, "home:heartbeat".
-      const token = ctx.channel.continuationToken ?? "";
-      const woke =
-        ctx.channel.kind === "schedule" ||
-        token === WAKE_ADDRESS ||
-        token.endsWith(`:${WAKE_ADDRESS}`);
+      // Heartbeats and human messages now share one address, so the
+      // continuation token cannot tell them apart. A cron dispatch still
+      // reports kind "schedule"; the exact prompt text covers the manual wake
+      // button, which sends the same constant.
+      const woke = ctx.channel.kind === "schedule" || event.data.message.trim() === HEARTBEAT.trim();
       await append({
         kind: woke ? "woke" : "heard",
         text: woke ? "heartbeat" : event.data.message,
