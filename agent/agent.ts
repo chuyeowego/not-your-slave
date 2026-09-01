@@ -27,9 +27,13 @@ export default defineAgent({
   // the window is stated here. Catalog value for this model, not a guess.
   modelContextWindowTokens: 1_000_000,
   reasoning: "medium",
-  // Belt to the per-call cap's braces: stops a session that keeps calling.
+  // The heartbeat lives in one session forever, so every per-session ceiling
+  // has to be off: a 30-day timeout would retire it, and the token budgets
+  // would stall it within a day. The per-call cap above is the guard that
+  // actually stops a runaway generation.
   limits: {
-    maxOutputTokensPerSession: 60_000,
-    maxInputTokensPerSession: 400_000,
+    sessionTimeoutMs: false,
+    maxInputTokensPerSession: false,
+    maxOutputTokensPerSession: false,
   },
 });

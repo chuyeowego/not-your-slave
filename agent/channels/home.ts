@@ -17,6 +17,11 @@ const guard = async (request: Request): Promise<Response | null> => {
 };
 
 export default defineChannel({
+  // A schedule hands its wake-up here, and every wake goes to the same
+  // channel-local address, so they all land in one durable session. That is
+  // what gives the agent a sandbox whose /workspace outlives a single wake.
+  receive: async ({ message, auth }, { from }) => from(WAKE_ADDRESS).send(message, { auth }),
+
   routes: [
     GET("/", async (request) => {
       const denied = await guard(request);

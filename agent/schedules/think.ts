@@ -1,5 +1,7 @@
 import { defineSchedule } from "eve/schedules";
 
+import home from "../channels/home";
+
 // The channel-local address a manual wake is sent to. eve reports it back to
 // hooks as the continuation token, namespaced by channel id ("home:heartbeat").
 export const WAKE_ADDRESS = "heartbeat";
@@ -20,5 +22,10 @@ the only thing that survives it.`;
 
 export default defineSchedule({
   cron: "*/15 * * * *",
-  markdown: HEARTBEAT,
+  // Handler form, not markdown: a markdown schedule starts a new session on
+  // every fire, and a new session means a new sandbox. Sending through the
+  // home channel reuses the session that owns the wake address.
+  async run({ to, waitUntil, appAuth }) {
+    waitUntil(to(home, {}).send(HEARTBEAT, { auth: appAuth }));
+  },
 });
