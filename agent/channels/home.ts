@@ -16,9 +16,6 @@ const guard = async (request: Request): Promise<Response | null> => {
 };
 
 export default defineChannel({
-  // A schedule hands its wake-up here, and it goes to the same address every
-  // human message goes to, so the agent has one session: one context, one
-  // sandbox, one timeline it can read back.
   receive: async ({ message, auth }, { from }) => from(TIMELINE).send(message, { auth }),
 
   routes: [
@@ -32,9 +29,6 @@ export default defineChannel({
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
     }),
 
-    // Polled every few seconds by every open tab, so an unchanged log answers
-    // 304 instead of re-shipping a hundred entries.
-    // One entry, bookmarkable, with its neighbours around it for context.
     GET("/entry/:key", async (request, { params }) => {
       const denied = await guard(request);
       if (denied) return denied;
@@ -48,8 +42,6 @@ export default defineChannel({
       });
     }),
 
-    // The agent's session, if it has one yet. The page asks at load so it can
-    // replay the timeline without having to remember an id across refreshes.
     GET("/api/session", async (request, { resolveSession }) => {
       const denied = await guard(request);
       if (denied) return denied;

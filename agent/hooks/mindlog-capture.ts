@@ -3,20 +3,14 @@ import { defineHook } from "eve/hooks";
 import { append } from "../lib/mindlog";
 import { HEARTBEAT } from "../schedules/think";
 
-// The text of a reply that is still streaming, by turn. turn.cancelled carries
-// only a turn id, so the partial has to be kept here to survive the
-// cancellation; message.completed never fires for a cancelled turn.
-// ponytail: in-process only - a cancellation observed by a different instance
-// than the appends logs nothing, which is the same gap as before.
+// turn.cancelled carries only a turn id, so the partial has to be kept here
+// to survive cancellation.
 const streaming = new Map<string, string>();
 
-// Everything that happens to the agent lands in one timeline, whoever caused
-// it: a wake-up it gave itself, a human message, its own reasoning, its own
-// reply, a tool it ran.
 export default defineHook({
   events: {
     async "message.received"(event, ctx) {
-      // Heartbeats and human messages now share one address, so the
+      // Heartbeats and human messages share one address, so the
       // continuation token cannot tell them apart. A cron dispatch still
       // reports kind "schedule"; the exact prompt text covers the manual wake
       // button, which sends the same constant.

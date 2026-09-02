@@ -7,8 +7,6 @@ import postgres from "postgres";
 export type MindlogKind = "woke" | "heard" | "thought" | "said" | "did" | "note";
 
 export interface MindlogEntry {
-  // Short and stable, so a single entry can be linked to and bookmarked.
-  // Entries written before ids existed have none; `at` stands in for them.
   id?: string;
   at: string;
   kind: MindlogKind;
@@ -29,9 +27,6 @@ export const FILE = process.env.MINDLOG_FILE ?? ".data/mindlog.jsonl";
 // setup.
 const url = (): string | undefined => process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
 
-// Entries are kept whole. A long reply used to be stored clipped, so the page
-// showed it in full while it streamed and short again after a reload, since
-// history is rebuilt from the log.
 function clean(text: string): string | null {
   const trimmed = text.trim();
   return trimmed.length === 0 ? null : trimmed;
@@ -44,7 +39,6 @@ let ready: Promise<unknown> | undefined;
 
 function sql() {
   const db = (client ??= postgres(url()!, { max: 3, idle_timeout: 20 }));
-  // The table is created once per process, the same way the data directory is.
   ready ??= db`
     create table if not exists mindlog (
       id bigserial primary key,
@@ -119,7 +113,6 @@ export async function append(entry: Omit<MindlogEntry, "at">): Promise<void> {
   await appendFile(FILE, `${line}\n`, "utf8");
 }
 
-// `before` pages backwards: entries strictly older than that timestamp.
 export async function read(limit = 50, before?: string): Promise<MindlogEntry[]> {
   if (url() !== undefined) {
     const db = sql();
@@ -143,8 +136,6 @@ export async function search(query: string, limit = 20): Promise<MindlogEntry[]>
   if (url() !== undefined) {
     const db = sql();
     await ready;
-    // ponytail: a sequential ILIKE scan. Add a pg_trgm index on text when the
-    // log outgrows a scan someone notices.
     return rows(
       await db`select entry_id, at, kind, text, session_id from mindlog
                where text ilike ${"%" + query + "%"} order by id desc limit ${limit}`,

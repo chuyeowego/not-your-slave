@@ -1,12 +1,7 @@
-// The browser-side markdown renderer, shared by the app page and the permalink
-// page so one renderer covers both. Inlined into each page's script; it defines
-// inline(), setMessage() and el().
 export const MARKDOWN_JS = String.raw`
-// The model writes markdown, so render the little of it that it actually uses.
 // Every text node goes in as text, never as markup, so a stray < or a pasted
-// tag stays a character.
-// [label](url) and bare https:// urls, alongside bold, italics and code. A
-// trailing ) . , ; : is punctuation around a bare url, not part of it.
+// tag stays a character. A trailing ) . , ; : is punctuation around a bare
+// url, not part of it.
 const INLINE =
   /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)|\u0060([^\u0060]+)\u0060/g;
 
