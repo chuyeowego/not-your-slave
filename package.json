@@ -8,8 +8,9 @@
   },
   "scripts": {
     "build": "eve build",
-    "check": "node --experimental-strip-types agent/lib/mindlog.check.ts && node --experimental-strip-types --import ./scripts/resolve-ts.mjs scripts/mindlog-capture.check.ts",
-    "check:page": "node --experimental-strip-types scripts/check-page.mjs",
+    "check": "vitest run",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:down": "bash scripts/db.sh down",
     "db:psql": "bash scripts/db.sh psql",
     "db:reset": "bash scripts/db.sh reset",
@@ -30,7 +31,8 @@
   },
   "devDependencies": {
     "@types/node": "24.x",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": "24.x"
