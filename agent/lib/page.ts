@@ -182,7 +182,7 @@ ${TOKENS}
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
       <textarea id="input" rows="1"></textarea>
-      <button type="submit">Send</button>
+      <button type="submit" title="Send (Cmd/Ctrl+Enter)">Send</button>
     </form>
   </section>
   <button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button>
@@ -417,8 +417,11 @@ function fitInput() {
 
 input.addEventListener("input", fitInput);
 
+// Enter is a newline on every device - on a phone there is no shift to hold,
+// and half-written thoughts should not send themselves. Cmd/Ctrl+Enter sends,
+// as does the Send button.
 input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
     e.preventDefault();
     document.getElementById("composer").requestSubmit();
   }
