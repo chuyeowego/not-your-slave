@@ -1,4 +1,7 @@
-// Runnable check for the capture hook: node --experimental-strip-types agent/hooks/mindlog-capture.check.ts
+// Runnable check for the capture hook: see the check script in package.json.
+//
+// It lives here, not beside the hook: eve treats every file under agent/hooks
+// as a hook and rejects a name with a dot in it.
 //
 // Covers the one branch that cannot be seen by reading a completed turn: a
 // cancelled turn logs the text it had already streamed, and an unstarted one
@@ -11,8 +14,8 @@ import { join } from "node:path";
 const dir = await mkdtemp(join(tmpdir(), "capture-check-"));
 process.env.MINDLOG_FILE = join(dir, "mindlog.jsonl");
 
-const hook = (await import("./mindlog-capture.ts")).default;
-const { read } = await import("../lib/mindlog.ts");
+const hook = (await import("../agent/hooks/mindlog-capture.ts")).default;
+const { read } = await import("../agent/lib/mindlog.ts");
 
 const events = hook.events as Record<string, (event: unknown, ctx: unknown) => unknown>;
 const ctx = { session: { id: "ses_check" }, channel: {} };
