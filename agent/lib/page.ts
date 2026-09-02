@@ -520,26 +520,34 @@ async function restore(id) {
   void follow(id, -1);
 }
 
-// The agent may already be mid-thought from a heartbeat before anyone opens
-// the page, so ask for its session rather than assuming there is none.
-void (async () => {
+// The agent may already be mid-thought from a heartbeat before anyone opens the
+// page, and it may not have a session at all yet. Keep asking until there is one
+// to attach to: otherwise a page opened first would miss everything the agent
+// said until someone typed, and only the mindlog would show it.
+async function ensureSession() {
+  if (sessionId !== null) return;
   try {
-    localStorage.removeItem("nys.session"); // the server owns this now
-    const res = await fetch("/api/session");
-    const { sessionId: existing } = await res.json();
-    if (existing) {
+    const { sessionId: existing } = await (await fetch("/api/session")).json();
+    if (existing !== null && sessionId === null) {
       sessionId = existing;
       await restore(existing);
     }
   } catch {}
-})();
+}
+
+localStorage.removeItem("nys.session"); // the server owns this now
+void ensureSession();
 
 void refreshMindlog();
 setInterval(() => {
-  if (document.visibilityState === "visible") void refreshMindlog();
+  if (document.visibilityState !== "visible") return;
+  void refreshMindlog();
+  void ensureSession();
 }, 3000);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") void refreshMindlog();
+  if (document.visibilityState !== "visible") return;
+  void refreshMindlog();
+  void ensureSession();
 });
 </script>
 </body>
