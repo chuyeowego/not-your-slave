@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "eve build",
-    "check": "node --experimental-strip-types agent/lib/mindlog.check.ts",
+    "check": "node --experimental-strip-types agent/lib/mindlog.check.ts && node --experimental-strip-types --import ./scripts/resolve-ts.mjs agent/hooks/mindlog-capture.check.ts",
     "check:page": "node --experimental-strip-types scripts/check-page.mjs",
     "db:down": "bash scripts/db.sh down",
     "db:psql": "bash scripts/db.sh psql",

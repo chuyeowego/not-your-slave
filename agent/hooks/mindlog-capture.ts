@@ -3,6 +3,13 @@ import { defineHook } from "eve/hooks";
 import { append } from "../lib/mindlog";
 import { HEARTBEAT } from "../schedules/think";
 
+// The text of a reply that is still streaming, by turn. turn.cancelled carries
+// only a turn id, so the partial has to be kept here to survive the
+// cancellation; message.completed never fires for a cancelled turn.
+// ponytail: in-process only - a cancellation observed by a different instance
+// than the appends logs nothing, which is the same gap as before.
+const streaming = new Map<string, string>();
+
 // Everything that happens to the agent lands in one timeline, whoever caused
 // it: a wake-up it gave itself, a human message, its own reasoning, its own
 // reply, a tool it ran.
@@ -23,9 +30,25 @@ export default defineHook({
     async "reasoning.completed"(event, ctx) {
       await append({ kind: "thought", text: event.data.reasoning, sessionId: ctx.session.id });
     },
+    "message.appended"(event) {
+      streaming.set(event.data.turnId, event.data.messageSoFar);
+    },
     async "message.completed"(event, ctx) {
+      streaming.delete(event.data.turnId);
       if (event.data.message === null) return;
       await append({ kind: "said", text: event.data.message, sessionId: ctx.session.id });
+    },
+    // A steering message replaced this turn. Whatever it had already said was
+    // real - a human watching the page saw it - so it belongs in the log,
+    // marked as unfinished rather than silently dropped.
+    async "turn.cancelled"(event, ctx) {
+      const partial = streaming.get(event.data.turnId);
+      streaming.delete(event.data.turnId);
+      if (!partial) return;
+      await append({ kind: "said", text: `${partial} […interrupted]`, sessionId: ctx.session.id });
+    },
+    "turn.failed"(event) {
+      streaming.delete(event.data.turnId);
     },
     async "action.result"(event, ctx) {
       // eve's result union is discriminated on `kind`, so a loaded skill and a
