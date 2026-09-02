@@ -23,7 +23,12 @@ export default defineChannel({
   routes: [
     GET("/", async (request) => {
       const denied = await guard(request);
-      return denied ?? new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+      if (denied) return denied;
+
+      // The page marks a wake-up in the conversation, so it needs to recognise
+      // one. It gets the prompt's opening line rather than its own copy.
+      const html = PAGE.replace("__WAKE_PREFIX__", JSON.stringify(HEARTBEAT.split("\n")[0]));
+      return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
     }),
 
     // Polled every few seconds by every open tab, so an unchanged log answers

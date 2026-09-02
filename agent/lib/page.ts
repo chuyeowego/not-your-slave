@@ -87,6 +87,12 @@ export const PAGE = String.raw`<!doctype html>
   }
   .msg.me .who { color: var(--hot); }
   .msg.it .who { color: var(--cool); }
+  .woke {
+    display: flex; align-items: center; gap: .7rem; margin: 0 0 1.4rem;
+    font-family: var(--mono); font-size: .6rem; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .woke::before, .woke::after { content: ""; flex: 1; border-top: 1px dotted var(--rule); }
   .msg .body > * { margin: 0 0 .6rem; }
   .msg .body > *:last-child { margin-bottom: 0; }
   .msg p { white-space: pre-wrap; }
@@ -161,6 +167,19 @@ const mindlogEl = document.getElementById("mindlog");
 const statusEl = document.getElementById("status");
 const input = document.getElementById("input");
 let sessionId = null;
+
+// Replaced when the page is served: the first line of the heartbeat prompt.
+const WAKE_PREFIX = __WAKE_PREFIX__;
+const isWake = (text) => typeof text === "string" && text.startsWith(WAKE_PREFIX);
+
+function wokeMarker() {
+  chat.querySelector(".empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "woke";
+  el.append("woke");
+  chat.append(el);
+  chat.scrollTop = chat.scrollHeight;
+}
 let live = null;
 
 // The model writes markdown, so render the little of it that it actually uses.
@@ -344,6 +363,9 @@ function flushAssistant(text) {
 function handle(event) {
   const data = event.data || {};
   switch (event.type) {
+    case "message.received":
+      if (isWake(data.message)) wokeMarker();
+      break;
     case "turn.started":
       statusEl.textContent = "thinking";
       break;
@@ -512,7 +534,10 @@ async function restore(id) {
     }
     await readNdjson(res, (event) => {
       const data = event.data || {};
-      if (event.type === "message.received") bubble("me", "you", data.message || "");
+      if (event.type === "message.received") {
+        if (isWake(data.message)) wokeMarker();
+        else bubble("me", "you", data.message || "");
+      }
       else if (event.type === "message.completed" && data.message) bubble("it", "it", data.message);
     });
   } catch {}
