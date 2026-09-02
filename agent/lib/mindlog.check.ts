@@ -4,10 +4,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+// Runs against whichever store is configured: DATABASE_URL if set, the file
+// otherwise. Run it twice to cover both.
 const dir = await mkdtemp(join(tmpdir(), "mindlog-check-"));
 process.env.MINDLOG_FILE = join(dir, "mindlog.jsonl");
 
-const { append, read, search } = await import("./mindlog.ts");
+const { append, read, search, version } = await import("./mindlog.ts");
+const store = process.env.DATABASE_URL ? "postgres" : "file";
+
+if (store === "postgres") {
+  const postgres = (await import("postgres")).default;
+  const sql = postgres(process.env.DATABASE_URL!);
+  await sql`drop table if exists mindlog`;
+  await sql.end();
+}
 
 assert.deepEqual(await read(), [], "a missing file reads as empty, not an error");
 
@@ -31,5 +41,10 @@ assert.equal((await search("thing", 1)).length, 1, "search honours the limit");
 await append({ kind: "note", text: "x".repeat(5000) });
 assert.ok((await read(1))[0].text.length <= 4001, "long entries are truncated");
 
+const stamp = await version();
+await append({ kind: "note", text: "changes the version" });
+assert.notEqual(await version(), stamp, "version() moves when an entry lands");
+
 await rm(dir, { recursive: true, force: true });
-console.log("mindlog check: ok");
+console.log(`mindlog check (${store}): ok`);
+process.exit(0);

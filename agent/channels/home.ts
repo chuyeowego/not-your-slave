@@ -1,10 +1,8 @@
 import { defineChannel, GET, POST } from "eve/channels";
 import { routeAuth } from "eve/channels/auth";
 
-import { stat } from "node:fs/promises";
-
 import { policy } from "../lib/auth";
-import { FILE, read } from "../lib/mindlog";
+import { read, version } from "../lib/mindlog";
 import { PAGE } from "../lib/page";
 import { HEARTBEAT, TIMELINE } from "../schedules/think";
 
@@ -62,8 +60,7 @@ export default defineChannel({
 
       const url = new URL(request.url);
       const limit = Number(url.searchParams.get("limit") ?? 80);
-      const size = await stat(FILE).then((s) => `${s.size}:${s.mtimeMs}`, () => "0");
-      const etag = `W/"${size}:${limit}"`;
+      const etag = `W/"${await version()}:${limit}"`;
 
       if (request.headers.get("if-none-match") === etag) {
         return new Response(null, { status: 304, headers: { etag } });

@@ -41,7 +41,7 @@ followed it. Each links to its commit on GitHub. Open them in order:
 | Path | What |
 | --- | --- |
 | `agent/instructions.md` | who it is, and how it treats the mindlog |
-| `agent/lib/mindlog.ts` | the mindlog store (JSONL at `.data/mindlog.jsonl`) |
+| `agent/lib/mindlog.ts` | the mindlog store: Postgres when `DATABASE_URL` is set, a JSONL file otherwise |
 | `agent/hooks/mindlog-capture.ts` | automatic capture: woke / heard / thought / said / did |
 | `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy in `/workspace`, and stops a completed session's sandbox |
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
