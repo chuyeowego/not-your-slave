@@ -96,6 +96,8 @@ export const PAGE = String.raw`<!doctype html>
   .msg .body > * { margin: 0 0 .6rem; }
   .msg .body > *:last-child { margin-bottom: 0; }
   .msg p { white-space: pre-wrap; }
+  .msg.me .body { color: var(--dim); }
+  .msg.it .body { color: var(--ink); }
   .msg p.head { font-weight: 600; letter-spacing: .01em; }
   .msg strong { font-weight: 600; }
   .msg em { font-style: italic; }
