@@ -44,7 +44,9 @@ ${TOKENS}
   .grip:hover, .grip:focus-visible { background: var(--hot); outline: none; }
 
   header {
-    display: flex; align-items: baseline; gap: .6rem;
+    /* Centred, not baseline: the theme dial is a square box with no text of
+       its own, so a baseline row hung it below the label beside it. */
+    display: flex; align-items: center; gap: .6rem;
     padding: .9rem 1.2rem; border-bottom: 1px solid var(--rule);
     font-family: var(--mono);
     font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
@@ -66,7 +68,7 @@ ${TOKENS}
      hairline-bordered shape as the other header buttons. */
   .theme-toggle {
     width: 1.6rem; height: 1.6rem; padding: 0;
-    display: grid; place-items: center; align-self: center;
+    display: grid; place-items: center;
     font-size: .8rem; line-height: 1; letter-spacing: 0;
   }
   .theme-toggle::before { content: "\25D0"; }
