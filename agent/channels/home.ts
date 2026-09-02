@@ -98,7 +98,9 @@ export default defineChannel({
       const denied = await guard(request);
       if (denied) return denied;
 
-      const session = await from(TIMELINE).send(HEARTBEAT, { auth: null });
+      // Queued for the same reason as the cron beat: waking it by hand should
+      // not cancel whatever it is in the middle of saying.
+      const session = await from(TIMELINE).send(HEARTBEAT, { auth: null, turnPolicy: "queue" });
       return Response.json({ sessionId: session.id });
     }),
   ],
