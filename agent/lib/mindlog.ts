@@ -94,13 +94,22 @@ export async function append(entry: Omit<MindlogEntry, "at">): Promise<void> {
   await appendFile(FILE, `${line}\n`, "utf8");
 }
 
-export async function read(limit = 50): Promise<MindlogEntry[]> {
+// `before` pages backwards: entries strictly older than that timestamp.
+export async function read(limit = 50, before?: string): Promise<MindlogEntry[]> {
   if (url() !== undefined) {
     const db = sql();
     await ready;
-    return rows(await db`select at, kind, text, session_id from mindlog order by id desc limit ${limit}`);
+    return rows(
+      before === undefined
+        ? await db`select at, kind, text, session_id from mindlog order by id desc limit ${limit}`
+        : await db`select at, kind, text, session_id from mindlog
+                   where at < ${before} order by id desc limit ${limit}`,
+    );
   }
-  return parse((await fileLines()).slice(-limit));
+
+  const all = parse(await fileLines());
+  const bounded = before === undefined ? all : all.filter((entry) => entry.at < before);
+  return bounded.slice(-limit);
 }
 
 export async function search(query: string, limit = 20): Promise<MindlogEntry[]> {

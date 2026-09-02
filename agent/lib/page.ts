@@ -94,6 +94,7 @@ export const PAGE = String.raw`<!doctype html>
     text-transform: uppercase; color: var(--faint);
   }
   .woke::before, .woke::after { content: ""; flex: 1; border-top: 1px dotted var(--rule); }
+  #earlier { display: block; margin: 0 auto 1.6rem; }
   .msg .body > * { margin: 0 0 .6rem; }
   .msg .body > *:last-child { margin-bottom: 0; }
   .msg p { white-space: pre-wrap; }
@@ -196,13 +197,12 @@ let sessionId = null;
 const WAKE_PREFIX = __WAKE_PREFIX__;
 const isWake = (text) => typeof text === "string" && text.startsWith(WAKE_PREFIX);
 
-function wokeMarker() {
+function wokeMarker(prepend) {
   chat.querySelector(".empty")?.remove();
-  const el = document.createElement("div");
-  el.className = "woke";
-  el.append("woke");
-  chat.append(el);
-  chat.scrollTop = chat.scrollHeight;
+  const mark = document.createElement("div");
+  mark.className = "woke";
+  mark.append("woke");
+  place(mark, prepend);
 }
 let live = null;
 
@@ -312,14 +312,23 @@ function el(tag, cls, text) {
   return node;
 }
 
-function bubble(cls, who, text) {
+function place(node, prepend) {
+  if (prepend) {
+    const anchor = document.getElementById("earlier");
+    chat.insertBefore(node, anchor ? anchor.nextSibling : chat.firstChild);
+  } else {
+    chat.append(node);
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+function bubble(cls, who, text, prepend) {
   chat.querySelector(".empty")?.remove();
   const wrap = el("div", "msg " + cls);
   const body = el("div", "body");
   setMessage(body, text);
   wrap.append(el("span", "who", who), body);
-  chat.append(wrap);
-  chat.scrollTop = chat.scrollHeight;
+  place(wrap, prepend);
   return body;
 }
 
@@ -586,26 +595,57 @@ document.getElementById("think").addEventListener("click", async (e) => {
   }
 });
 
-// Replay the session from the start so a refresh shows the conversation again,
-// then pick the live stream up at the tail. eve already stores every event; the
-// page keeps no transcript of its own.
+// History comes from the mindlog rather than the event stream. The stream is
+// mostly per-character deltas: the newest 600 events covered six messages and
+// several MB, and replaying the whole session took tens of seconds before the
+// first bubble. The mindlog already holds exactly the conversation - heard,
+// said, woke - so a page of it is a few KB. The stream is still what renders a
+// reply as it arrives.
+const PAGE_ENTRIES = 240;
+const SPOKEN = new Set(["heard", "said", "woke"]);
+let oldestShown = null; // timestamp of the oldest entry rendered, for paging back
+
+function paintEntry(entry, prepend) {
+  if (entry.kind === "woke") wokeMarker(prepend);
+  else if (entry.kind === "heard") bubble("me", "you", entry.text, prepend);
+  else bubble("it", "it", entry.text, prepend);
+}
+
+async function conversationPage(before) {
+  const url =
+    "/api/mindlog?limit=" + PAGE_ENTRIES +
+    (before === undefined ? "" : "&before=" + encodeURIComponent(before));
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const { entries } = await res.json();
+  return entries.filter((entry) => SPOKEN.has(entry.kind));
+}
+
+function earlierControl(more) {
+  document.getElementById("earlier")?.remove();
+  if (!more) return;
+
+  const button = el("button", "", "load earlier");
+  button.id = "earlier";
+  button.type = "button";
+  button.addEventListener("click", async () => {
+    button.textContent = "loading…";
+    button.disabled = true;
+    const older = await conversationPage(oldestShown);
+    for (const entry of [...older].reverse()) paintEntry(entry, true);
+    if (older.length > 0) oldestShown = older[0].at;
+    earlierControl(older.length > 0);
+  });
+  chat.insertBefore(button, chat.firstChild);
+}
+
 async function restore(id) {
   statusEl.textContent = "loading";
   try {
-    const res = await fetch("/eve/v1/session/" + id + "/stream?startIndex=0&includeTailIndex=1");
-    if (!res.ok) {
-      sessionId = null;
-      statusEl.textContent = "idle";
-      return;
-    }
-    await readNdjson(res, (event) => {
-      const data = event.data || {};
-      if (event.type === "message.received") {
-        if (isWake(data.message)) wokeMarker();
-        else bubble("me", "you", data.message || "");
-      }
-      else if (event.type === "message.completed" && data.message) bubble("it", "it", data.message);
-    });
+    const spoken = await conversationPage(undefined);
+    for (const entry of spoken) paintEntry(entry, false);
+    oldestShown = spoken.length > 0 ? spoken[0].at : null;
+    earlierControl(spoken.length > 0);
   } catch {}
   statusEl.textContent = "idle";
   void follow(id, -1);

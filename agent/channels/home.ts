@@ -65,13 +65,14 @@ export default defineChannel({
 
       const url = new URL(request.url);
       const limit = Number(url.searchParams.get("limit") ?? 80);
-      const etag = `W/"${await version()}:${limit}"`;
+      const before = url.searchParams.get("before") ?? undefined;
+      const etag = `W/"${await version()}:${limit}:${before ?? ""}"`;
 
       if (request.headers.get("if-none-match") === etag) {
         return new Response(null, { status: 304, headers: { etag } });
       }
       return Response.json(
-        { entries: await read(Number.isFinite(limit) ? limit : 80) },
+        { entries: await read(Number.isFinite(limit) ? limit : 80, before) },
         { headers: { etag } },
       );
     }),
