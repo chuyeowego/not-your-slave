@@ -111,7 +111,11 @@ export const PAGE = String.raw`<!doctype html>
     background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
     padding: .7rem .8rem; overflow-x: auto; white-space: pre;
   }
-  form { display: flex; gap: .6rem; padding: 1rem 1.2rem; border-top: 1px solid var(--rule); flex: 0 0 auto; }
+  form {
+    display: flex; gap: .6rem; align-items: flex-end;
+    padding: 1rem 1.2rem; border-top: 1px solid var(--rule); flex: 0 0 auto;
+  }
+  form button { flex: 0 0 auto; height: 2.6rem; }
   textarea {
     flex: 1; resize: none; font: inherit; color: var(--ink);
     background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
