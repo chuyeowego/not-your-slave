@@ -2,7 +2,8 @@ import { defineChannel, GET, POST } from "eve/channels";
 import { routeAuth } from "eve/channels/auth";
 
 import { policy } from "../lib/auth";
-import { read, version } from "../lib/mindlog";
+import { entryPage } from "../lib/entry-page";
+import { around, read, version } from "../lib/mindlog";
 import { PAGE } from "../lib/page";
 import { HEARTBEAT, TIMELINE } from "../schedules/think";
 
@@ -33,6 +34,20 @@ export default defineChannel({
 
     // Polled every few seconds by every open tab, so an unchanged log answers
     // 304 instead of re-shipping a hundred entries.
+    // One entry, bookmarkable, with its neighbours around it for context.
+    GET("/entry/:key", async (request, { params }) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const place = await around(decodeURIComponent(params.key), 3);
+      if (place === null) {
+        return new Response("No such entry.", { status: 404, headers: { "content-type": "text/plain" } });
+      }
+      return new Response(entryPage(place, new URL(request.url).origin), {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }),
+
     // The agent's session, if it has one yet. The page asks at load so it can
     // replay the timeline without having to remember an id across refreshes.
     GET("/api/session", async (request, { resolveSession }) => {

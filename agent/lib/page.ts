@@ -1,12 +1,12 @@
+import { FONTS, TOKENS } from "./style.ts";
+
 export const PAGE = String.raw`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>An agent that thinks for itself</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+${FONTS}
 <script>
   try {
     const saved = localStorage.getItem("nys.theme");
@@ -14,25 +14,7 @@ export const PAGE = String.raw`<!doctype html>
   } catch {}
 </script>
 <style>
-  /* One palette. light-dark() picks per token from the element's color-scheme,
-     so the toggle only has to set that scheme rather than restate ten colours
-     in three places. */
-  :root {
-    color-scheme: light dark;
-    --ink: light-dark(#1b1a15, #e8e3d8);
-    --dim: light-dark(#6d6757, #8b8579);
-    --faint: light-dark(#a8a294, #4a463e);
-    --bg: light-dark(#eeece4, #14130f);
-    --panel: light-dark(#f8f7f2, #1b1a15);
-    --rule: light-dark(#dad5c8, #2c2a23);
-    --hot: light-dark(#a8481a, #d4622a);
-    --cool: light-dark(#46683f, #6f8f6a);
-    --think: light-dark(#56488c, #8a7fb8);
-    --note: light-dark(#7d5f0c, #c9a227);
-    --mono: "JetBrains Mono", ui-monospace, monospace;
-  }
-  :root[data-theme="light"] { color-scheme: light; }
-  :root[data-theme="dark"] { color-scheme: dark; }
+${TOKENS}
 
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -140,6 +122,14 @@ export const PAGE = String.raw`<!doctype html>
   .entry .at { color: var(--faint); }
   .entry .kind { letter-spacing: .1em; text-transform: uppercase; font-size: .7rem; padding-top: .1rem; }
   .entry .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dim); }
+  /* Out of the way until the row is under the cursor, so the log stays a log. */
+  .entry .save {
+    font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--faint); margin-left: .5rem; text-decoration: none;
+    opacity: 0; transition: opacity .12s;
+  }
+  .entry:hover .save, .entry .save:focus-visible { opacity: 1; }
+  .entry .save:hover { color: var(--hot); }
   .entry[data-kind="heard"] .kind { color: var(--hot); }
   .entry[data-kind="said"] .kind { color: var(--cool); }
   .entry[data-kind="thought"] .kind { color: var(--think); }
@@ -355,7 +345,18 @@ async function refreshMindlog() {
     const row = el("div", "entry");
     row.dataset.kind = e.kind;
     const at = new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-    row.append(el("span", "at", at), el("span", "kind", e.kind), el("span", "text", e.text));
+    const text = el("span", "text", e.text);
+
+    // Its own page, so an interesting thought can be bookmarked. Entries
+    // written before ids existed fall back to their timestamp.
+    const save = document.createElement("a");
+    save.className = "save";
+    save.href = "/entry/" + encodeURIComponent(e.id || e.at);
+    save.textContent = "save";
+    save.title = "open this entry on its own page";
+    text.append(save);
+
+    row.append(el("span", "at", at), el("span", "kind", e.kind), text);
     return row;
   }));
   if (atBottom) mindlogEl.scrollTop = mindlogEl.scrollHeight;

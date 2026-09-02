@@ -46,7 +46,9 @@ followed it. Each links to its commit on GitHub. Open them in order:
 | `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy in `/workspace`, and stops a completed session's sandbox |
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
 | `agent/schedules/think.ts` | the heartbeat, every 15 minutes |
-| `agent/channels/home.ts` | the page, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think` |
+| `agent/channels/home.ts` | the page, `/entry/:key`, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think` |
+| `agent/lib/entry-page.ts` | one entry on its own bookmarkable page, neighbours dimmed around it |
+| `agent/lib/style.ts` | the palette, shared by both pages |
 | `agent/lib/page.ts` | the single-file UI |
 
 ## Model
