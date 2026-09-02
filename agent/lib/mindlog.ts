@@ -58,6 +58,14 @@ function sql() {
   return db;
 }
 
+// Cached for the process; tests call this so the Vitest worker can exit.
+export async function disconnect(): Promise<void> {
+  const current = client;
+  client = undefined;
+  ready = undefined;
+  if (current !== undefined) await current.end();
+}
+
 // Rows come back newest-first because that is the indexed direction; the file
 // store hands back oldest-first, so reverse to keep one shape for both.
 const row = (x: Record<string, unknown>): MindlogEntry => ({
