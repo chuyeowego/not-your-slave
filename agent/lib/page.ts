@@ -115,9 +115,11 @@ export const PAGE = String.raw`<!doctype html>
   textarea {
     flex: 1; resize: none; font: inherit; color: var(--ink);
     background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
-    padding: .55rem .7rem; min-height: 2.6rem; max-height: 8rem;
+    padding: .55rem .7rem; min-height: 2.6rem; max-height: 40vh;
+    overflow-y: auto;
   }
   textarea:focus { outline: none; border-color: var(--hot); }
+  textarea::placeholder { color: var(--faint); font-style: italic; opacity: 1; }
   .entry {
     font-family: var(--mono);
     font-size: .82rem; line-height: 1.55;
@@ -151,7 +153,7 @@ export const PAGE = String.raw`<!doctype html>
     <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="theme" type="button" title="Switch theme">theme</button><span id="status">idle</span></header>
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
-      <textarea id="input" placeholder="…" rows="1"></textarea>
+      <textarea id="input" placeholder="it is thinking anyway" rows="1"></textarea>
       <button type="submit">Send</button>
     </form>
   </section>
@@ -437,8 +439,18 @@ document.getElementById("composer").addEventListener("submit", (e) => {
   const text = input.value.trim();
   if (!text) return;
   input.value = "";
+  fitInput();
   void send(text);
 });
+
+// The box grows with what is in it, up to the max-height the stylesheet sets,
+// so a long message stays readable while it is being written.
+function fitInput() {
+  input.style.height = "auto";
+  input.style.height = input.scrollHeight + "px";
+}
+
+input.addEventListener("input", fitInput);
 
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
