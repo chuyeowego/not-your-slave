@@ -49,9 +49,6 @@ ${TOKENS}
     font-family: var(--mono);
     font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
     color: var(--dim); flex: 0 0 auto;
-    /* Room for the theme toggle, which floats over the top-right corner of
-       whichever pane happens to be there. */
-    padding-right: 3.4rem;
   }
   header b { color: var(--ink); font-weight: 700; }
   header .spacer { flex: 1; }
@@ -65,16 +62,13 @@ ${TOKENS}
   button:hover { color: var(--hot); border-color: var(--hot); }
   button:disabled { opacity: .4; cursor: default; }
   #mindlog-open, #mindlog-close { display: none; }
-  /* Same round dial as the theme gallery: a filled half-circle, mirrored so
-     the shading follows the theme you are in. */
+  /* The theme gallery's half-filled dial, cut to the same square-cornered,
+     hairline-bordered shape as the other header buttons. */
   .theme-toggle {
-    position: fixed; top: .62rem; right: .8rem; z-index: 50;
-    width: 34px; height: 34px; display: grid; place-items: center;
-    border: 1px solid var(--rule); border-radius: 999px;
-    background: var(--panel); color: var(--dim);
-    font: 15px/1 var(--mono); letter-spacing: 0; padding: 0; cursor: pointer;
+    width: 1.6rem; height: 1.6rem; padding: 0;
+    display: grid; place-items: center; align-self: center;
+    font-size: .8rem; line-height: 1; letter-spacing: 0;
   }
-  .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); border-color: var(--dim); }
   .theme-toggle::before { content: "\25D0"; }
   :root[data-theme="dark"] .theme-toggle::before { content: "\25D1"; }
   @media (prefers-color-scheme: dark) {
@@ -184,14 +178,13 @@ ${TOKENS}
 <body>
 <div class="frame">
   <section class="pane">
-    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><span id="status">idle</span></header>
+    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><span id="status">idle</span><button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button></header>
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
       <textarea id="input" rows="1"></textarea>
       <button type="submit" title="Send (Cmd/Ctrl+Enter)">Send</button>
     </form>
   </section>
-  <button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button>
   <div class="grip" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the mindlog"></div>
   <section class="pane mindlog">
     <header><b>mindlog</b><span class="spacer"></span><button id="think" type="button">Wake it</button><button id="mindlog-close" type="button" aria-label="Close the mindlog">close</button></header>
