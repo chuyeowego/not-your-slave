@@ -78,6 +78,7 @@ export const PAGE = String.raw`<!doctype html>
   }
   button:hover { color: var(--hot); border-color: var(--hot); }
   button:disabled { opacity: .4; cursor: default; }
+  #mindlog-open, #mindlog-close { display: none; }
   .scroll { flex: 1 1 auto; overflow-y: auto; padding: 1.2rem; }
   .msg { margin: 0 0 1.4rem; max-width: 60ch; }
   .msg .who {
@@ -146,19 +147,32 @@ export const PAGE = String.raw`<!doctype html>
   .entry[data-kind="did"] .kind { color: var(--faint); }
   .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
   .empty { color: var(--faint); font-style: italic; }
+  /* On a phone the chat is the whole screen and the composer stays on it: the
+     mindlog slides in over the top instead of living below the fold, where the
+     old stacked layout put it a full viewport away. */
   @media (max-width: 800px) {
-    body { overflow: auto; }
-    .frame { grid-template-columns: 1fr; height: auto; }
+    .frame { grid-template-columns: 1fr; height: 100dvh; }
     .grip { display: none; }
-    .pane { height: 100dvh; }
-    .pane + .pane { border-top: 1px solid var(--rule); }
+    #mindlog-open, #mindlog-close { display: inline-block; }
+
+    .pane.mindlog {
+      position: fixed; inset: 0 0 0 auto; z-index: 20;
+      width: min(92vw, 30rem);
+      background: var(--bg); border-left: 1px solid var(--rule);
+      transform: translateX(100%); transition: transform .18s ease-out;
+      box-shadow: -12px 0 32px rgb(0 0 0 / .35);
+    }
+    body[data-mindlog="open"] .pane.mindlog { transform: none; }
+  }
+  @media (max-width: 800px) and (prefers-reduced-motion: reduce) {
+    .pane.mindlog { transition: none; }
   }
 </style>
 </head>
 <body>
 <div class="frame">
   <section class="pane">
-    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="theme" type="button" title="Switch theme">theme</button><span id="status">idle</span></header>
+    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><button id="theme" type="button" title="Switch theme">theme</button><span id="status">idle</span></header>
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
       <textarea id="input" rows="1"></textarea>
@@ -166,8 +180,8 @@ export const PAGE = String.raw`<!doctype html>
     </form>
   </section>
   <div class="grip" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the mindlog"></div>
-  <section class="pane">
-    <header><b>mindlog</b><span class="spacer"></span><button id="think" type="button">Wake it</button></header>
+  <section class="pane mindlog">
+    <header><b>mindlog</b><span class="spacer"></span><button id="think" type="button">Wake it</button><button id="mindlog-close" type="button" aria-label="Close the mindlog">close</button></header>
     <div class="scroll" id="mindlog"><p class="empty">Nothing yet.</p></div>
   </section>
 </div>
@@ -549,6 +563,16 @@ themeButton.addEventListener("click", () => {
 
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintThemeButton);
 paintThemeButton();
+
+// Distinct from setMindlog(px), which sets the pane's width on desktop.
+const showMindlog = (open) => {
+  document.body.dataset.mindlog = open ? "open" : "closed";
+  if (open) void refreshMindlog();
+};
+document.getElementById("mindlog-open").addEventListener("click", () => showMindlog(true));
+document.getElementById("mindlog-close").addEventListener("click", () => showMindlog(false));
+// Hidden until asked for, on a phone.
+showMindlog(false);
 
 document.getElementById("think").addEventListener("click", async (e) => {
   const button = e.currentTarget;
