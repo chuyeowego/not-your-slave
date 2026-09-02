@@ -22,7 +22,6 @@ const newId = (): string => randomBytes(6).toString("hex");
 export const keyOf = (entry: MindlogEntry): string => entry.id ?? entry.at;
 
 export const FILE = process.env.MINDLOG_FILE ?? ".data/mindlog.jsonl";
-const MAX_TEXT = 4000;
 
 // Which store is in use is decided per call, not at module load: a deployment's
 // connection string can be a Vercel "sensitive" variable, which the build never
@@ -30,10 +29,12 @@ const MAX_TEXT = 4000;
 // setup.
 const url = (): string | undefined => process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
 
+// Entries are kept whole. A long reply used to be stored clipped, so the page
+// showed it in full while it streamed and short again after a reload, since
+// history is rebuilt from the log.
 function clean(text: string): string | null {
   const trimmed = text.trim();
-  if (trimmed.length === 0) return null;
-  return trimmed.length > MAX_TEXT ? `${trimmed.slice(0, MAX_TEXT)}…` : trimmed;
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 /* ---------------------------------------------------------------- postgres */

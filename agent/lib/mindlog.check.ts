@@ -38,8 +38,9 @@ assert.equal((await search("thing")).length, 2, "search spans the whole log");
 assert.equal((await search("nothing here")).length, 0);
 assert.equal((await search("thing", 1)).length, 1, "search honours the limit");
 
-await append({ kind: "note", text: "x".repeat(5000) });
-assert.ok((await read(1))[0].text.length <= 4001, "long entries are truncated");
+const long = "x".repeat(9000);
+await append({ kind: "note", text: long });
+assert.equal((await read(1))[0].text, long, "long entries are kept whole");
 
 const stamp = await version();
 await append({ kind: "note", text: "changes the version" });
