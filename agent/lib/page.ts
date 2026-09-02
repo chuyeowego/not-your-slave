@@ -152,6 +152,12 @@ ${TOKENS}
   .entry[data-kind="note"] .kind, .entry[data-kind="note"] .text { color: var(--note); }
   .entry[data-kind="did"] .kind { color: var(--faint); }
   .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
+  /* Where a cancelled turn stopped talking. */
+  .msg .cut {
+    display: inline-block; margin-left: .4rem;
+    font-family: var(--mono); font-size: .58rem;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+  }
   .empty { color: var(--faint); font-style: italic; }
   /* On a phone the chat is the whole screen and the composer stays on it: the
      mindlog slides in over the top instead of living below the fold, where the
@@ -342,6 +348,16 @@ function handle(event) {
     case "message.completed":
       if (data.message) flushAssistant(data.message);
       live = null;
+      void refreshMindlog();
+      break;
+    // A steering message replaced this turn mid-sentence. Keep what arrived,
+    // mark where it stopped, and release the bubble so the replacement turn
+    // opens its own instead of overwriting this one.
+    case "turn.cancelled":
+      pending = null;
+      if (live) live.append(el("span", "cut", "interrupted"));
+      live = null;
+      statusEl.textContent = "idle";
       void refreshMindlog();
       break;
     case "turn.failed":
