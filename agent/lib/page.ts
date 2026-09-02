@@ -293,16 +293,61 @@ async function readNdjson(res, onEvent) {
 
 // One long-lived reader per session. A new session starts at 0; an existing one
 // resumes at the tail so a reload does not replay old turns into the chat.
-async function follow(id, startIndex) {
+// startIndex is an absolute event count, so counting what arrives keeps an
+// exact cursor: a dropped connection resumes at the event it stopped on
+// instead of at the tail, which would skip whatever happened in the gap - the
+// gap that used to swallow a message.completed and leave a half-written reply
+// on screen forever.
+let cursor = 0;
+let lastEventAt = 0;
+let streamAbort = null;
+
+async function follow(id) {
+  // A catch-up read reports the durable tail in a header and stops, which is
+  // how we learn where "now" is without replaying the whole session.
+  cursor = 0;
+  try {
+    const head = await fetch("/eve/v1/session/" + id + "/stream?startIndex=-1&includeTailIndex=1");
+    const tail = Number(head.headers.get("x-eve-stream-tail-index"));
+    void head.body?.cancel();
+    if (Number.isFinite(tail)) cursor = tail + 1;
+  } catch {}
+
+  let wait = 1000;
   while (id === sessionId) {
     try {
-      const res = await fetch("/eve/v1/session/" + id + "/stream?startIndex=" + startIndex);
-      if (!res.ok) return;
-      await readNdjson(res, handle);
+      streamAbort = new AbortController();
+      const res = await fetch(
+        "/eve/v1/session/" + id + "/stream?startIndex=" + cursor,
+        { signal: streamAbort.signal },
+      );
+      // A session that no longer exists is the one case worth giving up on.
+      if (res.status === 404 || res.status === 410) return;
+      if (res.ok) {
+        wait = 1000;
+        lastEventAt = Date.now();
+        await readNdjson(res, (event) => {
+          cursor += 1;
+          lastEventAt = Date.now();
+          handle(event);
+        });
+      }
     } catch {}
-    startIndex = -1;
-    await new Promise((r) => setTimeout(r, 1000));
+    // Anything else - a restart, a 502, a dropped socket - is temporary. Back
+    // off and reconnect from the cursor rather than going deaf for good.
+    await new Promise((r) => setTimeout(r, wait));
+    wait = Math.min(wait * 2, 15000);
   }
+}
+
+// A socket that stalls without closing leaves the reader waiting forever, so
+// nothing paints and nothing errors. Cut it loose and let follow() reconnect.
+function watchStream() {
+  if (document.visibilityState !== "visible") return;
+  if (statusEl.textContent !== "thinking") return;
+  if (lastEventAt === 0 || Date.now() - lastEventAt < 45000) return;
+  lastEventAt = Date.now();
+  streamAbort?.abort();
 }
 
 let pending = null;
@@ -566,7 +611,7 @@ async function restore(id) {
     earlierControl(spoken.length > 0);
   } catch {}
   statusEl.textContent = "idle";
-  void follow(id, -1);
+  void follow(id);
 }
 
 // The agent may already be mid-thought from a heartbeat before anyone opens the
@@ -600,6 +645,7 @@ setInterval(() => {
   if (document.visibilityState !== "visible") return;
   void refreshMindlog();
   void ensureSession();
+  watchStream();
 }, 3000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
