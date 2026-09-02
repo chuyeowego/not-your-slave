@@ -8,12 +8,17 @@
   },
   "scripts": {
     "build": "eve build",
+    "check": "node --experimental-strip-types agent/lib/mindlog.check.ts",
+    "db:down": "bash scripts/db.sh down",
+    "db:psql": "bash scripts/db.sh psql",
+    "db:reset": "bash scripts/db.sh reset",
+    "db:status": "bash scripts/db.sh status",
+    "db:up": "bash scripts/db.sh up",
     "deploy": "eve deploy",
     "dev": "eve dev",
     "eval": "eve eval",
     "start": "eve start",
-    "typecheck": "tsc",
-    "check": "node --experimental-strip-types agent/lib/mindlog.check.ts"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@vercel/connect": "1.0.0",
