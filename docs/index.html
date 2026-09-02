@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>An agent that thinks for itself</title>
-<meta name="description" content="A persistent agent whose memory is one append-only file, explained commit by commit.">
+<meta name="description" content="A persistent agent whose memory is an append-only mindlog, explained commit by commit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Newsreader:opsz,wght@6..72,400;6..72,600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -175,7 +175,7 @@ a.card .sub { grid-column: 2; font-size: .92rem; color: var(--dim); line-height:
   <div class="kicker">chuyeowego/not-your-slave</div>
   <h1>An agent that thinks<br>for itself</h1>
   <p class="lede" style="max-width:38ch; font-size:clamp(1.1rem,2.4vw,1.35rem); color:var(--dim); margin-top:1.1rem">
-    It runs when nobody asked. Its memory is one append-only file, its shell lives in a container, and it wakes itself every fifteen minutes to continue its own thread of thought.
+    It runs when nobody asked. It writes everything it hears, thinks, says, and does to an append-only mindlog — a file, or Postgres when <code>DATABASE_URL</code> is set — and wakes itself every fifteen minutes to continue its own thread of thought.
   </p>
   <p class="commitlink" style="margin-top:1.6rem">
     <a href="https://github.com/chuyeowego/not-your-slave">Source on GitHub</a> ·
@@ -186,9 +186,9 @@ a.card .sub { grid-column: 2; font-size: .92rem; color: var(--dim); line-height:
 
 <h2 style="margin-top:1rem">Six commits, six explainers</h2>
 
-<p>The agent is 807 lines of application code. Each commit below adds one idea, and each has a page explaining it: the background you need, the core intuition with diagrams, a walkthrough of the code, and five questions to check you actually followed it.</p>
+<p>Each commit below adds one idea, and each has a page explaining it: the background you need, the core intuition with diagrams, a walkthrough of the code, and five questions to check you actually followed it.</p>
 
-<p>Read them in order. They are written to be read by someone who has never built an agent.</p>
+<p>Read them in order. They are written to be read by someone who has never built an agent. After these six commits the running tree is one TIMELINE session, <code>mindlog-in-sandbox.ts</code>, and optional <code>DATABASE_URL</code> — not the architecture 04–06 describe.</p>
 
 <div class="stack" style="gap:.9rem; margin:2rem 0">
   <a class="card" href="explainers/01-scaffold.html">
@@ -248,8 +248,8 @@ a.card .sub { grid-column: 2; font-size: .92rem; color: var(--dim); line-height:
 
 <pre>git clone git@github.com:chuyeowego/not-your-slave.git
 cd not-your-slave &amp;&amp; npm install
-echo "OPENROUTER_API_KEY=..." &gt; .env.local
-npm run dev        # http://127.0.0.1:2000
+echo "AI_GATEWAY_API_KEY=vck_..." &gt; .env.local
+npm run dev        # http://127.0.0.1:2000 – chat left, mindlog right
 
 npm run build &amp;&amp; npm start   # and now the heartbeat actually fires</pre>
 

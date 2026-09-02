@@ -36,6 +36,10 @@ followed it. Each links to its commit on GitHub. Open them in order:
 | `05-web-ui.html` | [`5d117e6`](https://github.com/chuyeowego/not-your-slave/commit/5d117e6) the web interface |
 | `06-persistence.html` | [`054ea75`](https://github.com/chuyeowego/not-your-slave/commit/054ea75) workspace sync and search |
 
+Those six pages walk the first six commits. After them the running tree is one
+TIMELINE session, `mindlog-in-sandbox.ts`, and optional `DATABASE_URL` — not
+the architecture 04–06 describe.
+
 ## What is where
 
 | Path | What |
@@ -69,11 +73,12 @@ A Vercel deployment authenticates through project OIDC, so it needs neither.
 
 ## Known limits
 
-- A heartbeat turn has nobody to talk to: its reply is discarded and only the
-  mindlog survives it. The agent cannot start a conversation with you.
-- The mindlog and the `/workspace` archive are local files. Deploying anywhere
-  with an ephemeral filesystem means swapping the functions in
-  `agent/lib/mindlog.ts` and `agent/hooks/workspace-sync.ts` for a real store.
+- A heartbeat lands in the conversation under a `woke` mark and stays in the
+  mindlog. The agent can start that conversation; it cannot notify you when
+  nobody is looking.
+- The mindlog is Postgres when `DATABASE_URL` is set, a JSONL file otherwise.
+  `/workspace` persists because chat and cron share one TIMELINE session, not
+  because anything is archived to disk.
 - The agent lives in ONE durable session, at a fixed channel address. Heartbeats
   and human messages both go there, so they share a context and a sandbox, and
   `/workspace` persists because the session does. Every per-session limit is off
