@@ -153,7 +153,7 @@ export const PAGE = String.raw`<!doctype html>
     <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="theme" type="button" title="Switch theme">theme</button><span id="status">idle</span></header>
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
-      <textarea id="input" placeholder="it is thinking anyway" rows="1"></textarea>
+      <textarea id="input" rows="1"></textarea>
       <button type="submit">Send</button>
     </form>
   </section>
@@ -571,6 +571,14 @@ async function ensureSession() {
     }
   } catch {}
 }
+
+// A different one each visit, so the empty box has some life in it.
+input.placeholder = [
+  "it is thinking anyway",
+  "it has been up for hours",
+  "say something, or don't",
+  "you are the interruption",
+][Math.floor(Math.random() * 4)];
 
 localStorage.removeItem("nys.session"); // the server owns this now
 void ensureSession();
