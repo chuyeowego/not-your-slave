@@ -14,9 +14,12 @@ const time = (at: string): string => {
 const entryRow = (entry: MindlogNeighbourhood["entry"], focus: boolean): string => `
     <article class="entry${focus ? " focus" : ""}" data-kind="${escape(entry.kind)}"${focus ? ' id="focus"' : ""}>
       <header>
-        <span class="at">${escape(time(entry.at))}</span>
+        ${
+          focus
+            ? `<span class="at">${escape(time(entry.at))}</span>`
+            : `<a class="at" href="/entry/${encodeURIComponent(keyOf(entry))}">${escape(time(entry.at))}</a>`
+        }
         <span class="kind">${escape(entry.kind)}</span>
-        ${focus ? "" : `<a class="jump" href="/entry/${encodeURIComponent(keyOf(entry))}">link</a>`}
       </header>
       <div class="body" data-text="${escape(entry.text)}"></div>
     </article>`;
@@ -89,7 +92,8 @@ ${TOKENS}
     background: var(--bg); border: 1px solid var(--rule); border-radius: 2px;
     padding: .7rem .8rem; overflow-x: auto; white-space: pre;
   }
-  .entry .jump { margin-left: auto; color: var(--faint); }
+  a.at { color: inherit; text-decoration: none; }
+  a.at:hover, a.at:focus-visible { color: var(--hot); text-decoration: underline; }
 
   .entry.focus {
     opacity: 1; border-left-color: var(--hot);

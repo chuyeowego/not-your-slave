@@ -117,20 +117,16 @@ ${TOKENS}
     font-family: var(--mono);
     font-size: .82rem; line-height: 1.55;
     padding: .5rem 0; border-bottom: 1px dotted var(--faint);
-    display: grid; grid-template-columns: 4.2rem 4rem 1fr; gap: .55rem;
+    display: grid; grid-template-columns: 4.6rem 1fr; gap: .55rem;
     align-items: start;
   }
-  .entry .at { color: var(--faint); }
-  .entry .kind { letter-spacing: .1em; text-transform: uppercase; font-size: .7rem; padding-top: .1rem; }
+  /* Time over kind in one column: the row then has a single narrow gutter and
+     the text gets the rest of the width. The time is also the permalink. */
+  .entry .when { display: grid; gap: .1rem; }
+  .entry .at { color: var(--faint); text-decoration: none; }
+  .entry .at:hover, .entry .at:focus-visible { color: var(--hot); text-decoration: underline; }
+  .entry .kind { letter-spacing: .1em; text-transform: uppercase; font-size: .7rem; }
   .entry .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dim); }
-  /* Out of the way until the row is under the cursor, so the log stays a log. */
-  .entry .save {
-    font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--faint); margin-left: .5rem; text-decoration: none;
-    opacity: 0; transition: opacity .12s;
-  }
-  .entry:hover .save, .entry .save:focus-visible { opacity: 1; }
-  .entry .save:hover { color: var(--hot); }
   .entry[data-kind="heard"] .kind { color: var(--hot); }
   .entry[data-kind="said"] .kind { color: var(--cool); }
   .entry[data-kind="thought"] .kind { color: var(--think); }
@@ -241,19 +237,18 @@ async function refreshMindlog() {
   mindlogEl.replaceChildren(...entries.map((e) => {
     const row = el("div", "entry");
     row.dataset.kind = e.kind;
-    const at = new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-    const text = el("span", "text", e.text);
+    // The time is the permalink, so every row is bookmarkable without a
+    // hover-only control. Entries written before ids existed fall back to
+    // their timestamp as the key.
+    const at = document.createElement("a");
+    at.className = "at";
+    at.href = "/entry/" + encodeURIComponent(e.id || e.at);
+    at.title = "open this entry on its own page";
+    at.textContent = new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
-    // Its own page, so an interesting thought can be bookmarked. Entries
-    // written before ids existed fall back to their timestamp.
-    const save = document.createElement("a");
-    save.className = "save";
-    save.href = "/entry/" + encodeURIComponent(e.id || e.at);
-    save.textContent = "save";
-    save.title = "open this entry on its own page";
-    text.append(save);
-
-    row.append(el("span", "at", at), el("span", "kind", e.kind), text);
+    const when = el("div", "when");
+    when.append(at, el("span", "kind", e.kind));
+    row.append(when, el("span", "text", e.text));
     return row;
   }));
   if (atBottom) mindlogEl.scrollTop = mindlogEl.scrollHeight;
