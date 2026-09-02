@@ -13,6 +13,7 @@ type InsertFragment = { readonly __insert: Record<string, unknown> };
 export class MemoryPostgres {
   readonly rows: MemoryRow[] = [];
   private nextId = 1;
+  private nextAt = Date.now();
 
   readonly tag: {
     (strings: TemplateStringsArray, ...values: unknown[]): Promise<Record<string, unknown>[]>;
@@ -57,7 +58,7 @@ export class MemoryPostgres {
       this.rows.push({
         id: this.nextId++,
         entry_id: (data.entry_id as string | null | undefined) ?? null,
-        at: new Date(),
+        at: new Date(this.nextAt++),
         kind: String(data.kind),
         text: String(data.text),
         session_id: (data.session_id as string | null | undefined) ?? null,
