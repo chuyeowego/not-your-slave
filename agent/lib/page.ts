@@ -44,8 +44,7 @@ ${TOKENS}
   .grip:hover, .grip:focus-visible { background: var(--hot); outline: none; }
 
   header {
-    /* Centred, not baseline: the theme dial is a square box with no text of
-       its own, so a baseline row hung it below the label beside it. */
+    /* Center, not baseline: the theme dial is a square with no text of its own. */
     display: flex; align-items: center; gap: .6rem;
     padding: .9rem 1.2rem; border-bottom: 1px solid var(--rule);
     font-family: var(--mono);
@@ -64,8 +63,6 @@ ${TOKENS}
   button:hover { color: var(--hot); border-color: var(--hot); }
   button:disabled { opacity: .4; cursor: default; }
   #mindlog-open, #mindlog-close { display: none; }
-  /* The theme gallery's half-filled dial, cut to the same square-cornered,
-     hairline-bordered shape as the other header buttons. */
   .theme-toggle {
     width: 1.6rem; height: 1.6rem; padding: 0;
     display: grid; place-items: center;
@@ -134,8 +131,6 @@ ${TOKENS}
     display: grid; grid-template-columns: 4.6rem 1fr; gap: .55rem;
     align-items: start;
   }
-  /* Time over kind in one column: the row then has a single narrow gutter and
-     the text gets the rest of the width. The time is also the permalink. */
   .entry .when { display: grid; gap: .1rem; }
   .entry .at { color: var(--faint); text-decoration: none; }
   .entry .at:hover, .entry .at:focus-visible { color: var(--hot); text-decoration: underline; }
@@ -148,16 +143,12 @@ ${TOKENS}
   .entry[data-kind="note"] .kind, .entry[data-kind="note"] .text { color: var(--note); }
   .entry[data-kind="did"] .kind { color: var(--faint); }
   .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
-  /* Where a cancelled turn stopped talking. */
   .msg .cut {
     display: inline-block; margin-left: .4rem;
     font-family: var(--mono); font-size: .58rem;
     letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
   }
   .empty { color: var(--faint); font-style: italic; }
-  /* On a phone the chat is the whole screen and the composer stays on it: the
-     mindlog slides in over the top instead of living below the fold, where the
-     old stacked layout put it a full viewport away. */
   @media (max-width: 800px) {
     .frame { grid-template-columns: 1fr; height: 100dvh; }
     .grip { display: none; }
@@ -242,7 +233,7 @@ async function refreshMindlog() {
   const res = await fetch("/api/mindlog?limit=120", {
     headers: mindlogTag ? { "if-none-match": mindlogTag } : {},
   });
-  if (res.status === 304) return; // nothing appended since the last poll
+  if (res.status === 304) return;
   mindlogTag = res.headers.get("etag") || "";
   const { entries } = await res.json();
   if (entries.length === 0) return;
@@ -257,9 +248,7 @@ async function refreshMindlog() {
   mindlogEl.replaceChildren(...entries.map((e) => {
     const row = el("div", "entry");
     row.dataset.kind = e.kind;
-    // The time is the permalink, so every row is bookmarkable without a
-    // hover-only control. Entries written before ids existed fall back to
-    // their timestamp as the key.
+    // Entries written before ids existed fall back to their timestamp as the key.
     const at = document.createElement("a");
     at.className = "at";
     at.href = "/entry/" + encodeURIComponent(e.id || e.at);
@@ -291,13 +280,10 @@ async function readNdjson(res, onEvent) {
   }
 }
 
-// One long-lived reader per session. A new session starts at 0; an existing one
-// resumes at the tail so a reload does not replay old turns into the chat.
-// startIndex is an absolute event count, so counting what arrives keeps an
-// exact cursor: a dropped connection resumes at the event it stopped on
-// instead of at the tail, which would skip whatever happened in the gap - the
-// gap that used to swallow a message.completed and leave a half-written reply
-// on screen forever.
+// One long-lived reader per session. Resume at the tail so a reload does not
+// replay old turns. startIndex is an absolute event count, so counting what
+// arrives keeps an exact cursor: a dropped connection resumes at the event it
+// stopped on instead of at the tail, which would skip the gap.
 let cursor = 0;
 let lastEventAt = 0;
 let streamAbort = null;
@@ -413,9 +399,6 @@ function handle(event) {
   }
 }
 
-// Every message goes to the agent's one session, whichever that currently is.
-// The server creates it when the address has none, so the page never has to
-// reconcile an id it remembered with the one that exists.
 async function send(text) {
   bubble("me", "you", text);
   statusEl.textContent = "thinking";
@@ -435,7 +418,7 @@ async function send(text) {
 
   if (started.sessionId !== sessionId) {
     sessionId = started.sessionId;
-    void follow(sessionId, -1);
+    void follow(sessionId);
   }
 }
 
@@ -464,8 +447,6 @@ document.getElementById("composer").addEventListener("submit", (e) => {
   void send(text);
 });
 
-// The box grows with what is in it, up to the max-height the stylesheet sets,
-// so a long message stays readable while it is being written.
 function fitInput() {
   input.style.height = "auto";
   input.style.height = input.scrollHeight + "px";
@@ -543,7 +524,6 @@ const showMindlog = (open) => {
 };
 document.getElementById("mindlog-open").addEventListener("click", () => showMindlog(true));
 document.getElementById("mindlog-close").addEventListener("click", () => showMindlog(false));
-// Hidden until asked for, on a phone.
 showMindlog(false);
 
 document.getElementById("think").addEventListener("click", async (e) => {
@@ -559,14 +539,11 @@ document.getElementById("think").addEventListener("click", async (e) => {
 });
 
 // History comes from the mindlog rather than the event stream. The stream is
-// mostly per-character deltas: the newest 600 events covered six messages and
-// several MB, and replaying the whole session took tens of seconds before the
-// first bubble. The mindlog already holds exactly the conversation - heard,
-// said, woke - so a page of it is a few KB. The stream is still what renders a
-// reply as it arrives.
+// per-character deltas; the mindlog already holds the conversation. The stream
+// still renders a reply as it arrives.
 const PAGE_ENTRIES = 240;
 const SPOKEN = new Set(["heard", "said", "woke"]);
-let oldestShown = null; // timestamp of the oldest entry rendered, for paging back
+let oldestShown = null;
 
 function paintEntry(entry, prepend) {
   if (entry.kind === "woke") wokeMarker(prepend);
@@ -629,7 +606,6 @@ async function ensureSession() {
   } catch {}
 }
 
-// A different one each visit, so the empty box has some life in it.
 input.placeholder = [
   "it is thinking anyway",
   "it has been up for hours",
@@ -637,7 +613,6 @@ input.placeholder = [
   "you are the interruption",
 ][Math.floor(Math.random() * 4)];
 
-localStorage.removeItem("nys.session"); // the server owns this now
 void ensureSession();
 
 void refreshMindlog();

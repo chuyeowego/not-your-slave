@@ -3,10 +3,6 @@ import type { SandboxSession } from "eve/sandbox";
 
 import { read, version } from "../lib/mindlog";
 
-// The agent lives in one durable session, and a session's sandbox keeps
-// /workspace for as long as the session lives - natively, on every backend. So
-// there is nothing to copy in or out; what is left is the one thing the sandbox
-// cannot see by itself.
 const MINDLOG_COPY = "/workspace/mindlog.jsonl";
 
 let copied = "";
@@ -21,7 +17,7 @@ const COPY_ENTRIES = 2000;
 async function refreshMindlogCopy(sandbox: SandboxSession): Promise<void> {
   try {
     const stamp = `${sandbox.id}:${await version()}`;
-    if (stamp === copied) return; // nothing appended since the last turn
+    if (stamp === copied) return;
     const entries = await read(COPY_ENTRIES);
     const content = entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n";
     await sandbox.writeTextFile({ path: MINDLOG_COPY, content });

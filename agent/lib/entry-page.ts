@@ -24,7 +24,6 @@ const entryRow = (entry: MindlogNeighbourhood["entry"], focus: boolean): string 
       <div class="body" data-text="${escape(entry.text)}"></div>
     </article>`;
 
-/** One entry, with its neighbours dimmed around it, at its own bookmarkable URL. */
 export function entryPage(place: MindlogNeighbourhood, origin: string): string {
   const permalink = `${origin}/entry/${encodeURIComponent(keyOf(place.entry))}`;
   const first = place.entry.text.replace(/\s+/g, " ").slice(0, 70);
@@ -67,7 +66,6 @@ ${TOKENS}
   }
   button:hover { color: var(--hot); border-color: var(--hot); }
 
-  /* Neighbours are context: present, readable, clearly not the subject. */
   .entry { padding: 1rem 0 1rem 1rem; border-left: 2px solid transparent; opacity: .45; }
   .entry header {
     display: flex; gap: .8rem; align-items: baseline;
@@ -126,9 +124,7 @@ ${place.after.map((entry) => entryRow(entry, false)).join("\n")}
 <script>
 ${MARKDOWN_JS}
 
-// The same renderer the conversation uses, over text carried in a data
-// attribute so nothing is ever parsed as markup on the way in.
-const WAKE_PREFIX = "";
+// Text is carried in a data attribute so nothing is parsed as markup on the way in.
 for (const host of document.querySelectorAll(".body")) {
   setMessage(host, host.dataset.text ?? "");
 }
