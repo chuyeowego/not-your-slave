@@ -348,6 +348,7 @@ async function follow(id, startIndex) {
 let pending = null;
 
 function showAssistant(text) {
+  if (!text) return; // nothing to show yet: no empty bubble with a bare label
   if (!live) live = bubble("it", "it", "");
   pending = text;
   requestAnimationFrame(() => {
@@ -361,6 +362,7 @@ function showAssistant(text) {
 // The final text must land even if the frame callback has not run yet.
 function flushAssistant(text) {
   pending = null;
+  if (!text) return;
   if (!live) live = bubble("it", "it", "");
   setMessage(live, text);
   chat.scrollTop = chat.scrollHeight;
