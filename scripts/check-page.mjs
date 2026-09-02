@@ -4,22 +4,38 @@
 import vm from "node:vm";
 
 const { PAGE } = await import("../agent/lib/page.ts");
-const blocks = [...PAGE.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const { entryPage } = await import("../agent/lib/entry-page.ts");
 
-if (blocks.length === 0) {
-  console.error("page check: no script blocks found");
-  process.exit(1);
-}
+const sample = {
+  id: "0123456789ab",
+  at: new Date().toISOString(),
+  kind: "said",
+  text: "**bold**, `code`, https://example.com",
+};
 
-for (const [i, block] of blocks.entries()) {
-  // Placeholders the server fills in when serving the page.
-  const source = block.replace("__WAKE_PREFIX__", '"woke"');
-  try {
-    new vm.Script(source, { filename: `page.ts script #${i + 1}` });
-  } catch (error) {
-    console.error(`page check: script #${i + 1} failed to parse\n${error.message}`);
+const pages = {
+  "page.ts": PAGE,
+  "entry-page.ts": entryPage({ before: [sample], entry: sample, after: [sample] }, "http://local"),
+};
+
+let total = 0;
+for (const [name, html] of Object.entries(pages)) {
+  const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  if (blocks.length === 0) {
+    console.error(`page check: ${name} has no script blocks`);
     process.exit(1);
   }
+  for (const [i, block] of blocks.entries()) {
+    // Placeholders the server fills in when serving the page.
+    const source = block.replace("__WAKE_PREFIX__", '"woke"');
+    try {
+      new vm.Script(source, { filename: `${name} script #${i + 1}` });
+    } catch (error) {
+      console.error(`page check: ${name} script #${i + 1} failed to parse\n${error.message}`);
+      process.exit(1);
+    }
+  }
+  total += blocks.length;
 }
 
-console.log(`page check: ${blocks.length} script blocks parse cleanly`);
+console.log(`page check: ${total} script blocks parse cleanly across ${Object.keys(pages).length} pages`);

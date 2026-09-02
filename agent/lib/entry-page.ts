@@ -1,5 +1,6 @@
 import type { MindlogNeighbourhood } from "./mindlog.ts";
 import { keyOf } from "./mindlog.ts";
+import { MARKDOWN_JS } from "./markdown.ts";
 import { FONTS, TOKENS } from "./style.ts";
 
 const escape = (text: string): string =>
@@ -17,7 +18,7 @@ const entryRow = (entry: MindlogNeighbourhood["entry"], focus: boolean): string 
         <span class="kind">${escape(entry.kind)}</span>
         ${focus ? "" : `<a class="jump" href="/entry/${encodeURIComponent(keyOf(entry))}">link</a>`}
       </header>
-      <p>${escape(entry.text)}</p>
+      <div class="body" data-text="${escape(entry.text)}"></div>
     </article>`;
 
 /** One entry, with its neighbours dimmed around it, at its own bookmarkable URL. */
@@ -70,7 +71,24 @@ ${TOKENS}
     font-family: var(--mono); font-size: .62rem; letter-spacing: .1em;
     text-transform: uppercase; color: var(--dim); margin-bottom: .5rem;
   }
-  .entry p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; }
+  .entry .body { font-size: .95rem; overflow-wrap: anywhere; }
+  .entry .body > * { margin: 0 0 .6rem; }
+  .entry .body > *:last-child { margin-bottom: 0; }
+  .entry .body p { white-space: pre-wrap; }
+  .entry .body p.head { font-weight: 600; }
+  .entry .body ul, .entry .body ol { padding-left: 1.4rem; }
+  .entry .body li { margin: 0 0 .3rem; }
+  .entry .body a { color: var(--hot); text-underline-offset: 2px; }
+  .entry .body code {
+    font-family: var(--mono); font-size: .82em;
+    background: var(--bg); border: 1px solid var(--rule); border-radius: 2px;
+    padding: .05em .3em;
+  }
+  .entry .body pre {
+    font-family: var(--mono); font-size: .78rem;
+    background: var(--bg); border: 1px solid var(--rule); border-radius: 2px;
+    padding: .7rem .8rem; overflow-x: auto; white-space: pre;
+  }
   .entry .jump { margin-left: auto; color: var(--faint); }
 
   .entry.focus {
@@ -78,13 +96,13 @@ ${TOKENS}
     background: var(--panel); border-radius: 0 3px 3px 0;
     padding: 1.4rem 1.4rem 1.4rem 1.4rem; margin: 1.6rem 0;
   }
-  .entry.focus p { font-size: 1.1rem; line-height: 1.6; }
+  .entry.focus .body { font-size: 1.1rem; line-height: 1.6; }
   .entry.focus header { color: var(--ink); }
 
   .entry[data-kind="heard"] .kind { color: var(--hot); }
   .entry[data-kind="said"] .kind { color: var(--cool); }
   .entry[data-kind="thought"] .kind { color: var(--think); }
-  .entry[data-kind="thought"] p { font-style: italic; }
+  .entry[data-kind="thought"] .body { font-style: italic; }
   .entry[data-kind="note"] .kind { color: var(--note); }
   .entry[data-kind="woke"] .kind { color: var(--think); }
   .entry[data-kind="did"] .kind { color: var(--faint); }
@@ -102,7 +120,16 @@ ${entryRow(place.entry, true)}
 ${place.after.map((entry) => entryRow(entry, false)).join("\n")}
 </div>
 <script>
-  const copy = document.getElementById("copy");
+${MARKDOWN_JS}
+
+// The same renderer the conversation uses, over text carried in a data
+// attribute so nothing is ever parsed as markup on the way in.
+const WAKE_PREFIX = "";
+for (const host of document.querySelectorAll(".body")) {
+  setMessage(host, host.dataset.text ?? "");
+}
+
+const copy = document.getElementById("copy");
   copy.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(copy.dataset.url);
