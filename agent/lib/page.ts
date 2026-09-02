@@ -103,6 +103,8 @@ export const PAGE = String.raw`<!doctype html>
   .msg em { font-style: italic; }
   .msg ul, .msg ol { padding-left: 1.4rem; }
   .msg li { margin: 0 0 .3rem; }
+  .msg a { color: var(--hot); text-underline-offset: 2px; }
+  .msg a:hover { text-decoration-thickness: 2px; }
   .msg code {
     font-family: var(--mono); font-size: .82em;
     background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
@@ -193,17 +195,37 @@ let live = null;
 // The model writes markdown, so render the little of it that it actually uses.
 // Every text node goes in as text, never as markup, so a stray < or a pasted
 // tag stays a character.
+// [label](url) and bare https:// urls, alongside bold, italics and code. A
+// trailing ) . , ; : is punctuation around a bare url, not part of it.
+const INLINE =
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)|\u0060([^\u0060]+)\u0060/g;
+
+function link(href, label) {
+  const a = document.createElement("a");
+  // Only ever an http(s) url from the pattern above, so no javascript: here.
+  a.href = href;
+  a.textContent = label;
+  a.target = "_blank";
+  a.rel = "noreferrer noopener";
+  return a;
+}
+
 function inline(text, into) {
-  const pattern = /\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)|\u0060([^\u0060]+)\u0060/g;
+  INLINE.lastIndex = 0;
   let at = 0;
   let match;
-  while ((match = pattern.exec(text)) !== null) {
+  while ((match = INLINE.exec(text)) !== null) {
     if (match.index > at) into.append(text.slice(at, match.index));
-    const [, bold, italic, code] = match;
-    const tag = bold ? "strong" : italic ? "em" : "code";
-    const node = document.createElement(tag);
-    node.textContent = bold ?? italic ?? code;
-    into.append(node);
+    const [, label, href, bare, bold, italic, code] = match;
+
+    if (href !== undefined) into.append(link(href, label));
+    else if (bare !== undefined) into.append(link(bare, bare));
+    else {
+      const tag = bold !== undefined ? "strong" : italic !== undefined ? "em" : "code";
+      const node = document.createElement(tag);
+      node.textContent = bold ?? italic ?? code;
+      into.append(node);
+    }
     at = match.index + match[0].length;
   }
   if (at < text.length) into.append(text.slice(at));
