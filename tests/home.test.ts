@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { IsolatedMindlog } from "./helpers/isolated-mindlog.ts";
 import { HomeRoutes } from "./helpers/channel.ts";
+import { Clock, IsolatedMindlog } from "./helpers/isolated-mindlog.ts";
 
 describe("home channel routes", () => {
   let store: IsolatedMindlog;
@@ -105,6 +105,7 @@ describe("home channel routes", () => {
   test("GET /api/mindlog pages, etags, and answers 304", async () => {
     const home = await channel();
     await store.api.append({ kind: "note", text: "alpha" });
+    await Clock.nextMs();
     await store.api.append({ kind: "note", text: "beta" });
 
     const first = await HomeRoutes.handler(home, "GET", "/api/mindlog")(
