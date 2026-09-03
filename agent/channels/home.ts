@@ -1,4 +1,4 @@
-import { defineChannel, GET, POST } from "eve/channels";
+import { defineChannel, GET, HEAD, POST } from "eve/channels";
 import { routeAuth } from "eve/channels/auth";
 
 import { policy } from "../lib/auth";
@@ -57,9 +57,20 @@ export default defineChannel({
     GET("/manifest.webmanifest", async () =>
       new Response(Pwa.manifest(), { headers: { "content-type": "application/manifest+json; charset=utf-8" } }),
     ),
+    HEAD("/manifest.webmanifest", async () =>
+      new Response(null, { headers: { "content-type": "application/manifest+json; charset=utf-8" } }),
+    ),
 
     GET("/sw.js", async () =>
       new Response(Pwa.serviceWorker(), {
+        headers: {
+          "content-type": "text/javascript; charset=utf-8",
+          "service-worker-allowed": "/",
+        },
+      }),
+    ),
+    HEAD("/sw.js", async () =>
+      new Response(null, {
         headers: {
           "content-type": "text/javascript; charset=utf-8",
           "service-worker-allowed": "/",
@@ -70,13 +81,22 @@ export default defineChannel({
     GET("/icon.svg", async () =>
       new Response(Pwa.iconSvg(), { headers: { "content-type": "image/svg+xml; charset=utf-8" } }),
     ),
+    HEAD("/icon.svg", async () =>
+      new Response(null, { headers: { "content-type": "image/svg+xml; charset=utf-8" } }),
+    ),
 
     GET("/icon-192.png", async () =>
       new Response(Buffer.from(Pwa.iconPng(192)), { headers: { "content-type": "image/png" } }),
     ),
+    HEAD("/icon-192.png", async () =>
+      new Response(null, { headers: { "content-type": "image/png" } }),
+    ),
 
     GET("/icon-512.png", async () =>
       new Response(Buffer.from(Pwa.iconPng(512)), { headers: { "content-type": "image/png" } }),
+    ),
+    HEAD("/icon-512.png", async () =>
+      new Response(null, { headers: { "content-type": "image/png" } }),
     ),
 
     GET("/api/session", async (request, { resolveSession }) => {
