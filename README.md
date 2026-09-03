@@ -15,7 +15,9 @@ npm run dev          # http://127.0.0.1:2000 – chat left, mindlog right
 ```
 
 `eve dev` never fires cron, so use the **Wake it** button to trigger a heartbeat
-by hand. For real autonomy, run the built server, which starts the scheduler:
+by hand. **Notify** asks for Web Push after a tap (never on first paint) and
+sends a test notification so you can prove the worker without waiting for a
+reply. For real autonomy, run the built server, which starts the scheduler:
 
 ```bash
 npm run build && npm start
@@ -50,10 +52,12 @@ the architecture 04–06 describe.
 | `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy in `/workspace`, and stops a completed session's sandbox |
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
 | `agent/schedules/think.ts` | the heartbeat, every 15 minutes |
-| `agent/channels/home.ts` | the page, `/entry/:key`, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think` |
+| `agent/channels/home.ts` | the page, `/entry/:key`, PWA files, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think`, `/api/push/*` |
 | `agent/lib/entry-page.ts` | one entry on its own bookmarkable page, neighbours dimmed around it |
 | `agent/lib/style.ts` | the palette, shared by both pages |
 | `agent/lib/page.ts` | the single-file UI |
+| `agent/lib/pwa.ts` | web app manifest, service worker, generated icons |
+| `agent/lib/push.ts` | Web Push subscriptions (Postgres when `DATABASE_URL` is set, JSONL otherwise) |
 
 ## Model
 
@@ -71,11 +75,35 @@ Credentials, either one:
 
 A Vercel deployment authenticates through project OIDC, so it needs neither.
 
+## Web Push (VAPID)
+
+Generate a key pair once and put it in `.env.local` (or the host's env). Never
+commit the private key.
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+```bash
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com   # or https://your.origin
+```
+
+`localhost` under `eve dev` is a valid secure context for service workers. Away
+from localhost the page is HTTPS. On iPhone, Web Push only works after **Add to
+Home Screen** — a Safari tab cannot receive it, and this UI will say so instead
+of pretending.
+
+A new mindlog `said` (a completed or interrupted agent reply) fans out to stored
+subscriptions. The service worker suppresses the banner on a focused window of
+that device. Heartbeat `woke` entries do not notify. Tap **Notify** / **test
+push** to send a forced notification without waiting for a live turn.
+
 ## Known limits
 
-- A heartbeat lands in the conversation under a `woke` mark and stays in the
-  mindlog. The agent can start that conversation; it cannot notify you when
-  nobody is looking.
+- Push needs VAPID keys in the environment. Without them the Notify control
+  reports `no vapid` and `said` entries stay in the mindlog only.
 - The mindlog is Postgres when `DATABASE_URL` is set, a JSONL file otherwise.
   `/workspace` persists because chat and cron share one TIMELINE session, not
   because anything is archived to disk.

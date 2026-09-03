@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { IsolatedMindlog, type MindlogApi } from "./helpers/isolated-mindlog.ts";
 
@@ -24,6 +24,19 @@ describe("mindlog capture hook", () => {
   const fire = (type: string, data: Record<string, unknown>, channel: Record<string, unknown> = {}) =>
     events[type]({ type, data }, { ...ctx, channel: { ...ctx.channel, ...channel } });
 
+  test("a completed said fans out; woke does not", async () => {
+    const { Push } = await import("#lib/push.ts");
+    const send = vi.spyOn(Push, "send").mockResolvedValue({ ok: true, sent: 0 });
+
+    await fire("message.completed", { turnId: "turn_said", message: "a finished reply" });
+    expect(send).toHaveBeenCalledWith({
+      title: "it said something",
+      body: "a finished reply",
+      url: "/",
+      silentIfFocused: true,
+    });
+  });
+
   test("a cancelled turn logs its partial once; an empty or completed turn adds nothing extra", async () => {
     await fire("message.appended", { turnId: "turn_a", messageSoFar: "half a thought about", messageDelta: "" });
     await fire("turn.cancelled", { turnId: "turn_a" });
@@ -40,6 +53,8 @@ describe("mindlog capture hook", () => {
 
   test("a human message is heard; the heartbeat constant and a schedule channel are woke", async () => {
     const { HEARTBEAT } = await import("#schedules/think.ts");
+    const { Push } = await import("#lib/push.ts");
+    const send = vi.spyOn(Push, "send");
 
     await fire("message.received", { message: "hello there" });
     await fire("message.received", { message: HEARTBEAT });
@@ -52,6 +67,7 @@ describe("mindlog capture hook", () => {
       ["woke", "heartbeat"],
     ]);
     expect(entries.every((entry) => entry.sessionId === "ses_check")).toBe(true);
+    expect(send).not.toHaveBeenCalled();
   });
 
   test("reasoning lands as thought", async () => {

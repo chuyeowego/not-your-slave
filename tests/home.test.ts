@@ -148,5 +148,91 @@ describe("home channel routes", () => {
     const home = await channel();
     const res = await HomeRoutes.handler(home, "GET", "/")(new Request("http://example.test/"), HomeRoutes.args());
     expect(res.status).toBe(401);
+
+    const subscribe = await HomeRoutes.handler(home, "POST", "/api/push/subscribe")(
+      new Request("http://example.test/api/push/subscribe", { method: "POST", body: "{}" }),
+      HomeRoutes.args(),
+    );
+    expect(subscribe.status).toBe(401);
+  });
+
+  test("GET /manifest.webmanifest is public and names a standalone start_url", async () => {
+    delete process.env.EVE_DEV;
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "GET", "/manifest.webmanifest")(
+      new Request("http://example.test/manifest.webmanifest"),
+      HomeRoutes.args(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/manifest/);
+    const manifest = await res.json();
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.start_url).toBe("/");
+    expect(manifest.theme_color).toBe("#14130f");
+    expect(manifest.icons.some((icon: { src: string }) => icon.src === "/icon-192.png")).toBe(true);
+  });
+
+  test("GET /icon-192.png is a real PNG", async () => {
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "GET", "/icon-192.png")(
+      new Request("http://local/icon-192.png"),
+      HomeRoutes.args(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect([...bytes.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(bytes.byteLength).toBeGreaterThan(200);
+  });
+
+  test("GET /sw.js can receive push and opens / on notification click", async () => {
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "GET", "/sw.js")(new Request("http://local/sw.js"), HomeRoutes.args());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/javascript/);
+    const source = await res.text();
+    expect(source).toContain('addEventListener("push"');
+    expect(source).toContain("showNotification");
+    expect(source).toContain("openWindow(\"/\")");
+    expect(source).toContain("silentIfFocused");
+    expect(source).toContain("client.focused");
+  });
+
+  test("POST /api/push/subscribe validates the Web Push subscription shape", async () => {
+    const home = await channel();
+    const bad = await HomeRoutes.handler(home, "POST", "/api/push/subscribe")(
+      new Request("http://local/api/push/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ endpoint: "http://evil.test/push" }),
+      }),
+      HomeRoutes.args(),
+    );
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ ok: false });
+
+    const ok = await HomeRoutes.handler(home, "POST", "/api/push/subscribe")(
+      new Request("http://local/api/push/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          endpoint: "https://push.example/sub",
+          keys: { p256dh: "pkey", auth: "asecret" },
+        }),
+      }),
+      HomeRoutes.args(),
+    );
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ ok: true });
+  });
+
+  test("POST /api/push/test is a dry run when VAPID is unset", async () => {
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "POST", "/api/push/test")(
+      new Request("http://local/api/push/test", { method: "POST" }),
+      HomeRoutes.args(),
+    );
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: true, skipped: "vapid" });
   });
 });

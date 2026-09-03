@@ -1,6 +1,7 @@
 import { defineHook } from "eve/hooks";
 
 import { append } from "../lib/mindlog";
+import { Push } from "../lib/push";
 import { HEARTBEAT } from "../schedules/think";
 
 // turn.cancelled carries only a turn id, so the partial has to be kept here
@@ -31,6 +32,7 @@ export default defineHook({
       streaming.delete(event.data.turnId);
       if (event.data.message === null) return;
       await append({ kind: "said", text: event.data.message, sessionId: ctx.session.id });
+      await Push.fanout("said", event.data.message);
     },
     // A steering message replaced this turn. Whatever it had already said was
     // real - a human watching the page saw it - so it belongs in the log,
@@ -39,7 +41,9 @@ export default defineHook({
       const partial = streaming.get(event.data.turnId);
       streaming.delete(event.data.turnId);
       if (!partial) return;
-      await append({ kind: "said", text: `${partial} […interrupted]`, sessionId: ctx.session.id });
+      const text = `${partial} […interrupted]`;
+      await append({ kind: "said", text, sessionId: ctx.session.id });
+      await Push.fanout("said", text);
     },
     "turn.failed"(event) {
       streaming.delete(event.data.turnId);
