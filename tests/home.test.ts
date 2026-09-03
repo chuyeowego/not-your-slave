@@ -156,6 +156,17 @@ describe("home channel routes", () => {
     expect(subscribe.status).toBe(401);
   });
 
+  test("HEAD /manifest.webmanifest is public so install probes do not 404", async () => {
+    delete process.env.EVE_DEV;
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "HEAD", "/manifest.webmanifest")(
+      new Request("http://example.test/manifest.webmanifest", { method: "HEAD" }),
+      HomeRoutes.args(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/manifest/);
+  });
+
   test("GET /manifest.webmanifest is public and names a standalone start_url", async () => {
     delete process.env.EVE_DEV;
     const home = await channel();
