@@ -21,6 +21,9 @@ export class IsolatedMindlog {
     delete process.env.DATABASE_URL;
     delete process.env.POSTGRES_URL;
     vi.stubEnv("MINDLOG_FILE", file);
+    vi.stubEnv("PUSH_FILE", join(dir, "push.jsonl"));
+    delete process.env.VAPID_PUBLIC_KEY;
+    delete process.env.VAPID_PRIVATE_KEY;
     const api = await import("#lib/mindlog.ts");
     return new IsolatedMindlog(dir, file, api);
   }

@@ -17,6 +17,13 @@ describe("PAGE", () => {
     expect(PAGE).toContain("/api/mindlog");
     expect(PAGE).toContain("/api/think");
     expect(PAGE).toContain("/api/session");
+    expect(PAGE).toContain('rel="manifest"');
+    expect(PAGE).toContain("/manifest.webmanifest");
+    expect(PAGE).toContain('id="notify"');
+    expect(PAGE).toContain("/sw.js");
+    expect(PAGE).toContain("viewport-fit=cover");
+    expect(PAGE).toContain("safe-area-inset");
+    expect(PAGE).toContain("Add to Home Screen");
   });
 
   test("inlined scripts parse once the server placeholder is filled", () => {

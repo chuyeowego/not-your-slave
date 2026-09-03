@@ -5,7 +5,16 @@ export const PAGE = String.raw`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eeece4" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#14130f" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="not-your-slave" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
 <title>An agent that thinks for itself</title>
 ${FONTS}
 ${THEME_BOOTSTRAP}
@@ -23,11 +32,12 @@ ${RENDERED}
     font-size: 17px;
     line-height: 1.5;
     overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
   .frame {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 5px var(--mindlog, 32rem);
-    height: 100dvh;
+    height: 100%;
   }
   .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .grip {
@@ -41,13 +51,13 @@ ${RENDERED}
 
   header {
     /* Center, not baseline: the theme dial is a square with no text of its own. */
-    display: flex; align-items: center; gap: .6rem;
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
     padding: .9rem 1.2rem; border-bottom: 1px solid var(--rule);
     font-family: var(--mono);
     font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
     color: var(--dim); flex: 0 0 auto;
   }
-  header b { color: var(--ink); font-weight: 700; }
+  header b { color: var(--ink); font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   header .spacer { flex: 1; }
   button {
     font: inherit; font-family: var(--mono); font-size: .62rem;
@@ -94,7 +104,8 @@ ${RENDERED}
   .msg code, .msg pre { background: var(--panel); }
   form {
     display: flex; gap: .6rem; align-items: flex-end;
-    padding: 1rem 1.2rem; border-top: 1px solid var(--rule); flex: 0 0 auto;
+    padding: 1rem 1.2rem max(1rem, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--rule); flex: 0 0 auto;
   }
   form button { flex: 0 0 auto; height: 2.6rem; }
   textarea {
@@ -124,16 +135,17 @@ ${RENDERED}
   }
   .empty { color: var(--faint); font-style: italic; }
   @media (max-width: 800px) {
-    .frame { grid-template-columns: 1fr; height: 100dvh; }
+    .frame { grid-template-columns: 1fr; }
     .grip { display: none; }
     #mindlog-open, #mindlog-close { display: inline-block; }
+    button { min-height: 2.4rem; padding: .45rem .7rem; }
+    .theme-toggle { width: 2.4rem; height: 2.4rem; }
 
     .pane.mindlog {
-      position: fixed; inset: 0 0 0 auto; z-index: 20;
-      width: min(92vw, 30rem);
-      background: var(--bg); border-left: 1px solid var(--rule);
+      position: fixed; inset: 0; z-index: 20; width: 100%;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      background: var(--bg); border-left: 0;
       transform: translateX(100%); transition: transform .18s ease-out;
-      box-shadow: -12px 0 32px rgb(0 0 0 / .35);
     }
     body[data-mindlog="open"] .pane.mindlog { transform: none; }
   }
@@ -145,7 +157,7 @@ ${RENDERED}
 <body>
 <div class="frame">
   <section class="pane">
-    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><span id="status">idle</span><button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button></header>
+    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><button id="notify" type="button">notify</button><span id="status">idle</span><button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button></header>
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
       <textarea id="input" rows="1"></textarea>
@@ -398,7 +410,8 @@ async function send(text) {
 
 // Typing anywhere on the page goes to the composer, so there is nothing to
 // click first. Modifier combos, real fields, and button keys are left alone.
-input.focus();
+// A phone should not raise the keyboard the moment the page opens.
+if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) input.focus();
 
 document.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -601,6 +614,82 @@ document.addEventListener("visibilitychange", () => {
   void refreshMindlog();
   void ensureSession();
 });
+
+if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+
+const notifyBtn = document.getElementById("notify");
+
+function phoneHome() {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone = window.matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone === true;
+  return { ios, standalone };
+}
+
+function vapidBytes(base64) {
+  const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function enablePush() {
+  const place = phoneHome();
+  if (place.ios && !place.standalone) {
+    notifyBtn.textContent = "add to home";
+    notifyBtn.title = "On iPhone, Add to Home Screen first. Safari tabs cannot receive Web Push.";
+    return;
+  }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.isSecureContext) {
+    notifyBtn.textContent = "unsupported";
+    notifyBtn.disabled = true;
+    return;
+  }
+  notifyBtn.disabled = true;
+  notifyBtn.textContent = "…";
+  try {
+    const vapid = await (await fetch("/api/push/vapid")).json();
+    if (!vapid.publicKey) {
+      notifyBtn.textContent = "no vapid";
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      notifyBtn.textContent = "blocked";
+      return;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: vapidBytes(vapid.publicKey),
+    });
+    const saved = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sub),
+    });
+    if (!saved.ok) {
+      notifyBtn.textContent = "failed";
+      return;
+    }
+    const test = await fetch("/api/push/test", { method: "POST" });
+    notifyBtn.textContent = test.ok ? "test push" : "on";
+  } catch {
+    notifyBtn.textContent = "failed";
+  } finally {
+    notifyBtn.disabled = false;
+  }
+}
+
+notifyBtn.addEventListener("click", () => { void enablePush(); });
+
+const boot = phoneHome();
+if (boot.ios && !boot.standalone) {
+  notifyBtn.textContent = "add to home";
+  notifyBtn.title = "On iPhone, Add to Home Screen first. Safari tabs cannot receive Web Push.";
+}
 </script>
 </body>
 </html>`;

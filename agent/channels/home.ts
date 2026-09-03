@@ -5,6 +5,8 @@ import { policy } from "../lib/auth";
 import { entryPage } from "../lib/entry-page";
 import { around, read, version } from "../lib/mindlog";
 import { PAGE } from "../lib/page";
+import { Pwa } from "../lib/pwa";
+import { Push } from "../lib/push";
 import { HEARTBEAT, TIMELINE } from "../schedules/think";
 
 // A channel's own routes are not covered by the eve channel's auth policy, so
@@ -13,6 +15,14 @@ import { HEARTBEAT, TIMELINE } from "../schedules/think";
 const guard = async (request: Request): Promise<Response | null> => {
   const result = await routeAuth(request, policy);
   return result instanceof Response ? result : null;
+};
+
+const readJson = async (request: Request): Promise<unknown> => {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
 };
 
 export default defineChannel({
@@ -41,6 +51,33 @@ export default defineChannel({
         headers: { "content-type": "text/html; charset=utf-8" },
       });
     }),
+
+    // Installable bits have no secrets. Leaving them unguarded means a browser
+    // can fetch the manifest and worker without replaying Basic auth.
+    GET("/manifest.webmanifest", async () =>
+      new Response(Pwa.manifest(), { headers: { "content-type": "application/manifest+json; charset=utf-8" } }),
+    ),
+
+    GET("/sw.js", async () =>
+      new Response(Pwa.serviceWorker(), {
+        headers: {
+          "content-type": "text/javascript; charset=utf-8",
+          "service-worker-allowed": "/",
+        },
+      }),
+    ),
+
+    GET("/icon.svg", async () =>
+      new Response(Pwa.iconSvg(), { headers: { "content-type": "image/svg+xml; charset=utf-8" } }),
+    ),
+
+    GET("/icon-192.png", async () =>
+      new Response(Buffer.from(Pwa.iconPng(192)), { headers: { "content-type": "image/png" } }),
+    ),
+
+    GET("/icon-512.png", async () =>
+      new Response(Buffer.from(Pwa.iconPng(512)), { headers: { "content-type": "image/png" } }),
+    ),
 
     GET("/api/session", async (request, { resolveSession }) => {
       const denied = await guard(request);
@@ -94,6 +131,59 @@ export default defineChannel({
       // not cancel whatever it is in the middle of saying.
       const session = await from(TIMELINE).send(HEARTBEAT, { auth: null, turnPolicy: "queue" });
       return Response.json({ sessionId: session.id });
+    }),
+
+    GET("/api/push/vapid", async (request) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const publicKey = Push.publicKey();
+      if (publicKey === null) {
+        return Response.json({ ok: false, error: "vapid not configured", publicKey: null }, { status: 503 });
+      }
+      return Response.json({ ok: true, publicKey });
+    }),
+
+    POST("/api/push/subscribe", async (request) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const parsed = Push.parseSubscription(await readJson(request));
+      if (!parsed.ok) return Response.json({ ok: false, error: parsed.error }, { status: 400 });
+      await Push.subscribe(parsed.value);
+      return Response.json({ ok: true });
+    }),
+
+    POST("/api/push/unsubscribe", async (request) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const body = await readJson(request);
+      const endpoint =
+        typeof body === "object" && body !== null && "endpoint" in body && typeof body.endpoint === "string"
+          ? body.endpoint.trim()
+          : "";
+      if (endpoint.length === 0 || !Push.allowedEndpoint(endpoint)) {
+        return Response.json({ ok: false, error: "endpoint required" }, { status: 400 });
+      }
+      await Push.unsubscribe(endpoint);
+      return Response.json({ ok: true });
+    }),
+
+    POST("/api/push/test", async (request) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+
+      const result = await Push.send({
+        title: "not-your-slave",
+        body: "push is on",
+        url: "/",
+        silentIfFocused: false,
+      });
+      if (result.ok && "skipped" in result && result.skipped === "vapid") {
+        return Response.json(result, { status: 503 });
+      }
+      return Response.json(result);
     }),
   ],
 });
