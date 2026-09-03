@@ -1,7 +1,7 @@
 import type { MindlogNeighbourhood } from "./mindlog.ts";
 import { keyOf } from "./mindlog.ts";
 import { MARKDOWN_JS } from "./markdown.ts";
-import { FONTS, TOKENS } from "./style.ts";
+import { FONTS, RENDERED, THEME_BOOTSTRAP, TOKENS } from "./style.ts";
 
 const escape = (text: string): string =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -35,14 +35,10 @@ export function entryPage(place: MindlogNeighbourhood, origin: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escape(place.entry.kind)} · ${escape(first)}</title>
 ${FONTS}
-<script>
-  try {
-    const saved = localStorage.getItem("nys.theme");
-    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
-  } catch {}
-</script>
+${THEME_BOOTSTRAP}
 <style>
 ${TOKENS}
+${RENDERED}
 
   * { box-sizing: border-box; }
   body {
@@ -73,23 +69,7 @@ ${TOKENS}
     text-transform: uppercase; color: var(--dim); margin-bottom: .5rem;
   }
   .entry .body { font-size: .95rem; overflow-wrap: anywhere; }
-  .entry .body > * { margin: 0 0 .6rem; }
-  .entry .body > *:last-child { margin-bottom: 0; }
-  .entry .body p { white-space: pre-wrap; }
-  .entry .body p.head { font-weight: 600; }
-  .entry .body ul, .entry .body ol { padding-left: 1.4rem; }
-  .entry .body li { margin: 0 0 .3rem; }
-  .entry .body a { color: var(--hot); text-underline-offset: 2px; }
-  .entry .body code {
-    font-family: var(--mono); font-size: .82em;
-    background: var(--bg); border: 1px solid var(--rule); border-radius: 2px;
-    padding: .05em .3em;
-  }
-  .entry .body pre {
-    font-family: var(--mono); font-size: .78rem;
-    background: var(--bg); border: 1px solid var(--rule); border-radius: 2px;
-    padding: .7rem .8rem; overflow-x: auto; white-space: pre;
-  }
+  .entry .body code, .entry .body pre { background: var(--bg); }
   a.at { color: inherit; text-decoration: none; }
   a.at:hover, a.at:focus-visible { color: var(--hot); text-decoration: underline; }
 
@@ -100,14 +80,6 @@ ${TOKENS}
   }
   .entry.focus .body { font-size: 1.1rem; line-height: 1.6; }
   .entry.focus header { color: var(--ink); }
-
-  .entry[data-kind="heard"] .kind { color: var(--hot); }
-  .entry[data-kind="said"] .kind { color: var(--cool); }
-  .entry[data-kind="thought"] .kind { color: var(--think); }
-  .entry[data-kind="thought"] .body { font-style: italic; }
-  .entry[data-kind="note"] .kind { color: var(--note); }
-  .entry[data-kind="woke"] .kind { color: var(--think); }
-  .entry[data-kind="did"] .kind { color: var(--faint); }
 </style>
 </head>
 <body>

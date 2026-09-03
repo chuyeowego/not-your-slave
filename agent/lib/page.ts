@@ -1,5 +1,5 @@
 import { MARKDOWN_JS } from "./markdown.ts";
-import { FONTS, TOKENS } from "./style.ts";
+import { FONTS, RENDERED, THEME_BOOTSTRAP, TOKENS } from "./style.ts";
 
 export const PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -8,14 +8,10 @@ export const PAGE = String.raw`<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>An agent that thinks for itself</title>
 ${FONTS}
-<script>
-  try {
-    const saved = localStorage.getItem("nys.theme");
-    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
-  } catch {}
-</script>
+${THEME_BOOTSTRAP}
 <style>
 ${TOKENS}
+${RENDERED}
 
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -89,28 +85,13 @@ ${TOKENS}
   }
   .woke::before, .woke::after { content: ""; flex: 1; border-top: 1px dotted var(--rule); }
   #earlier { display: block; margin: 0 auto 1.6rem; }
-  .msg .body > * { margin: 0 0 .6rem; }
-  .msg .body > *:last-child { margin-bottom: 0; }
-  .msg p { white-space: pre-wrap; }
   .msg.me .body { color: var(--dim); }
   .msg.it .body { color: var(--ink); }
-  .msg p.head { font-weight: 600; letter-spacing: .01em; }
+  .msg p.head { letter-spacing: .01em; }
   .msg strong { font-weight: 600; }
   .msg em { font-style: italic; }
-  .msg ul, .msg ol { padding-left: 1.4rem; }
-  .msg li { margin: 0 0 .3rem; }
-  .msg a { color: var(--hot); text-underline-offset: 2px; }
   .msg a:hover { text-decoration-thickness: 2px; }
-  .msg code {
-    font-family: var(--mono); font-size: .82em;
-    background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
-    padding: .05em .3em;
-  }
-  .msg pre {
-    font-family: var(--mono); font-size: .78rem;
-    background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
-    padding: .7rem .8rem; overflow-x: auto; white-space: pre;
-  }
+  .msg code, .msg pre { background: var(--panel); }
   form {
     display: flex; gap: .6rem; align-items: flex-end;
     padding: 1rem 1.2rem; border-top: 1px solid var(--rule); flex: 0 0 auto;
@@ -136,13 +117,6 @@ ${TOKENS}
   .entry .at:hover, .entry .at:focus-visible { color: var(--hot); text-decoration: underline; }
   .entry .kind { letter-spacing: .1em; text-transform: uppercase; font-size: .7rem; }
   .entry .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dim); }
-  .entry[data-kind="heard"] .kind { color: var(--hot); }
-  .entry[data-kind="said"] .kind { color: var(--cool); }
-  .entry[data-kind="thought"] .kind { color: var(--think); }
-  .entry[data-kind="thought"] .text { color: var(--ink); font-style: italic; }
-  .entry[data-kind="note"] .kind, .entry[data-kind="note"] .text { color: var(--note); }
-  .entry[data-kind="did"] .kind { color: var(--faint); }
-  .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
   .msg .cut {
     display: inline-block; margin-left: .4rem;
     font-family: var(--mono); font-size: .58rem;

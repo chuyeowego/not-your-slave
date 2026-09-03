@@ -23,3 +23,42 @@ export const TOKENS = String.raw`
 export const FONTS = String.raw`<link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />`;
+
+// Both pages stamp a saved scheme on :root before the first paint.
+export const THEME_BOOTSTRAP = String.raw`<script>
+  try {
+    const saved = localStorage.getItem("nys.theme");
+    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+  } catch {}
+</script>`;
+
+// Rendered-body typography and kind colours. Shared selectors already exist
+// on both documents; backgrounds and conversation/permalink extras stay local.
+export const RENDERED = String.raw`
+  .body > * { margin: 0 0 .6rem; }
+  .body > *:last-child { margin-bottom: 0; }
+  .body p { white-space: pre-wrap; }
+  .body p.head { font-weight: 600; }
+  .body ul, .body ol { padding-left: 1.4rem; }
+  .body li { margin: 0 0 .3rem; }
+  .body a { color: var(--hot); text-underline-offset: 2px; }
+  .body code {
+    font-family: var(--mono); font-size: .82em;
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: .05em .3em;
+  }
+  .body pre {
+    font-family: var(--mono); font-size: .78rem;
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: .7rem .8rem; overflow-x: auto; white-space: pre;
+  }
+
+  .entry[data-kind="heard"] .kind { color: var(--hot); }
+  .entry[data-kind="said"] .kind { color: var(--cool); }
+  .entry[data-kind="thought"] .kind { color: var(--think); }
+  .entry[data-kind="thought"] .text { color: var(--ink); font-style: italic; }
+  .entry[data-kind="thought"] .body { font-style: italic; }
+  .entry[data-kind="note"] .kind, .entry[data-kind="note"] .text { color: var(--note); }
+  .entry[data-kind="did"] .kind { color: var(--faint); }
+  .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
+`;
