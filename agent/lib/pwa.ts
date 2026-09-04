@@ -1,7 +1,6 @@
 import { crc32, deflateSync } from "node:zlib";
 
 // Same hexes as TOKENS in style.ts. A manifest and a PNG cannot read CSS variables.
-const BG_LIGHT = "#eeece4";
 const BG_DARK = "#14130f";
 const HOT = "#d4622a";
 
@@ -104,10 +103,6 @@ async function openHome() {
     const png = Pwa.renderPng(size);
     pngCache.set(size, png);
     return png;
-  }
-
-  static lightBackground(): string {
-    return BG_LIGHT;
   }
 
   static darkBackground(): string {

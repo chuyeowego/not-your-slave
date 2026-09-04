@@ -174,22 +174,6 @@ export default defineChannel({
       return Response.json({ ok: true });
     }),
 
-    POST("/api/push/unsubscribe", async (request) => {
-      const denied = await guard(request);
-      if (denied) return denied;
-
-      const body = await readJson(request);
-      const endpoint =
-        typeof body === "object" && body !== null && "endpoint" in body && typeof body.endpoint === "string"
-          ? body.endpoint.trim()
-          : "";
-      if (endpoint.length === 0 || !Push.allowedEndpoint(endpoint)) {
-        return Response.json({ ok: false, error: "endpoint required" }, { status: 400 });
-      }
-      await Push.unsubscribe(endpoint);
-      return Response.json({ ok: true });
-    }),
-
     POST("/api/push/test", async (request) => {
       const denied = await guard(request);
       if (denied) return denied;

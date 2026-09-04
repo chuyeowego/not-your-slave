@@ -16,7 +16,6 @@ describe("Pwa assets", () => {
     expect(manifest.theme_color).toBe(Pwa.darkBackground());
     expect(manifest.background_color).toBe(Pwa.darkBackground());
     expect(manifest.theme_color).toBe("#14130f");
-    expect(Pwa.lightBackground()).toBe("#eeece4");
     expect(manifest.icons.map((icon) => icon.src)).toEqual(["/icon.svg", "/icon-192.png", "/icon-512.png"]);
   });
 

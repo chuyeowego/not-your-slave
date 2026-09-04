@@ -32,7 +32,7 @@ export default defineHook({
       streaming.delete(event.data.turnId);
       if (event.data.message === null) return;
       await append({ kind: "said", text: event.data.message, sessionId: ctx.session.id });
-      await Push.fanout("said", event.data.message);
+      await Push.fanout(event.data.message);
     },
     // A steering message replaced this turn. Whatever it had already said was
     // real - a human watching the page saw it - so it belongs in the log,
@@ -43,7 +43,7 @@ export default defineHook({
       if (!partial) return;
       const text = `${partial} […interrupted]`;
       await append({ kind: "said", text, sessionId: ctx.session.id });
-      await Push.fanout("said", text);
+      await Push.fanout(text);
     },
     "turn.failed"(event) {
       streaming.delete(event.data.turnId);
