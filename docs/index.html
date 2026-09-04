@@ -244,17 +244,6 @@ a.card .sub { grid-column: 2; font-size: .92rem; color: var(--dim); line-height:
   <figcaption>A human message is one more observation in the timeline, not the thing that starts it.</figcaption>
 </figure>
 
-<h2>Running it</h2>
-
-<pre>git clone git@github.com:chuyeowego/not-your-slave.git
-cd not-your-slave &amp;&amp; npm install
-echo "AI_GATEWAY_API_KEY=vck_..." &gt; .env.local
-npm run dev        # http://127.0.0.1:2000 – chat left, mindlog right
-
-npm run build &amp;&amp; npm start   # and now the heartbeat actually fires</pre>
-
-<p><code>eve dev</code> never fires cron, so during development the heartbeat is a button. The built server runs the scheduler, which is where the agent becomes autonomous. Commit 4 explains why that distinction matters more than it sounds.</p>
-
 <p class="commitlink" style="margin-top:2.5rem; border:0; padding:0">
   <a href="https://github.com/chuyeowego/not-your-slave">chuyeowego/not-your-slave</a>
 </p>
