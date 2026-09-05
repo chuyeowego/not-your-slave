@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { IsolatedMindlog } from "./helpers/isolated-mindlog.ts";
 
@@ -18,20 +18,6 @@ describe("Push", () => {
   async function api() {
     return (await import("#lib/push.ts")).Push;
   }
-
-  test("only said entries notify; woke never does", async () => {
-    const Push = await api();
-    expect(Push.shouldNotify("said")).toBe(true);
-    expect(Push.shouldNotify("woke")).toBe(false);
-    expect(Push.shouldNotify("heard")).toBe(false);
-    expect(Push.shouldNotify("thought")).toBe(false);
-    expect(Push.shouldNotify("did")).toBe(false);
-    expect(Push.shouldNotify("note")).toBe(false);
-
-    const send = vi.spyOn(Push, "send");
-    expect(await Push.fanout("woke", "heartbeat")).toEqual({ ok: true, skipped: "kind" });
-    expect(send).not.toHaveBeenCalled();
-  });
 
   test("parseSubscription accepts a browser payload and rejects http off localhost", async () => {
     const Push = await api();
@@ -81,6 +67,6 @@ describe("Push", () => {
       ok: true,
       skipped: "vapid",
     });
-    expect(await Push.fanout("said", "a finished reply")).toEqual({ ok: true, skipped: "vapid" });
+    expect(await Push.fanout("a finished reply")).toEqual({ ok: true, skipped: "vapid" });
   });
 });

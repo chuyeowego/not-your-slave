@@ -4,8 +4,6 @@ import { dirname } from "node:path";
 import postgres from "postgres";
 import webpush from "web-push";
 
-import type { MindlogKind } from "./mindlog.ts";
-
 export interface PushSubscriptionRecord {
   endpoint: string;
   p256dh: string;
@@ -21,13 +19,13 @@ export interface PushPayload {
 
 export type FanoutResult =
   | { ok: true; sent: number }
-  | { ok: true; skipped: "kind" | "vapid" };
+  | { ok: true; skipped: "vapid" };
 
 export type ParseResult =
   | { ok: true; value: PushSubscriptionRecord }
   | { ok: false; error: string };
 
-export const FILE = process.env.PUSH_FILE ?? ".data/push.jsonl";
+const FILE = process.env.PUSH_FILE ?? ".data/push.jsonl";
 
 const url = (): string | undefined => process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
 
@@ -69,23 +67,6 @@ export class Push {
 
   static configured(): boolean {
     return Push.publicKey() !== null && Push.privateKey() !== null;
-  }
-
-  static shouldNotify(kind: MindlogKind): boolean {
-    switch (kind) {
-      case "said":
-        return true;
-      case "woke":
-      case "heard":
-      case "thought":
-      case "did":
-      case "note":
-        return false;
-      default: {
-        const _exhaustive: never = kind;
-        return _exhaustive;
-      }
-    }
   }
 
   static allowedEndpoint(endpoint: string): boolean {
@@ -157,8 +138,7 @@ export class Push {
     return Push.readFile();
   }
 
-  static async fanout(kind: MindlogKind, text: string): Promise<FanoutResult> {
-    if (!Push.shouldNotify(kind)) return { ok: true, skipped: "kind" };
+  static async fanout(text: string): Promise<FanoutResult> {
     return Push.send({
       title: "it said something",
       body: Push.clip(text),
