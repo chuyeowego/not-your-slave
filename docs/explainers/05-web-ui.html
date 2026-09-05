@@ -366,11 +366,6 @@ if (at &lt; text.length) into.append(text.slice(at));   // plain text as text</p
   <li><strong>Polling.</strong> The mindlog pane refetches every three seconds and on every turn boundary. Crude, and correct: the mindlog is written by hooks in a different session than the one the page is watching, so there is no event on this stream to trigger from.</li>
 </ul>
 
-<div class="callout warn">
-  <span class="label">What this commit does not fix</span>
-  <p>The built server refuses these requests. <code>localDev()</code> from commit 1 is ignored in production and <code>placeholderAuth()</code> denies browsers, so <code>npm start</code> serves the page and then answers <code>401 unauthorized</code> on <code>/eve/v1</code>. For a localhost-only daemon the fix is one line - <code>none()</code> - but it is a security decision, so it stays unmade and documented.</p>
-</div>
-
 <h2 id="quiz">Quiz</h2>
 
 <div class="quiz">
