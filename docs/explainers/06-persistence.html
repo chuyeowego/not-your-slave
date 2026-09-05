@@ -369,14 +369,6 @@ async function restore(sandbox: SandboxSession): Promise&lt;string&gt; {
 
 <p>A linear scan, exposed as <code>mindlog_search</code>. Recall until now was "the most recent N entries", which meant last week was invisible - a real limitation for an agent whose whole point is continuity. The implementation is deliberately dumb: at a few thousand entries a substring scan is instant, and the alternative is an index that has to be maintained and can fall out of sync with the file. The agent used it correctly on the first try, returning five matches for "busywork" and identifying the oldest.</p>
 
-<h3>What is still open</h3>
-
-<ul>
-  <li><strong>One copy, no backup.</strong> The mindlog and the archive are gitignored and live on one machine. <code>cp</code> them somewhere.</li>
-  <li><strong>No forgetting.</strong> The log only grows. There is no compaction, no summarisation, no retention policy - headlong's exponential-decay resolution is the obvious next step.</li>
-  <li><strong>Production auth</strong> from commit 5, unchanged and deliberate.</li>
-</ul>
-
 <h2 id="quiz">Quiz</h2>
 
 <div class="quiz">
