@@ -23,7 +23,6 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@vercel/connect": "1.0.0",
     "ai": "^7.0.82",
     "eve": "^0.47.6",
     "postgres": "^3.4.9",
