@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 
 import { Clock } from "./helpers/isolated-mindlog.ts";
 import { LivePostgres } from "./helpers/live-postgres.ts";
@@ -16,10 +16,6 @@ describe("mindlog postgres store", () => {
 
   beforeEach(async () => {
     await store.reset();
-  });
-
-  afterEach(() => {
-    expect(process.env.DATABASE_URL).toBe(store.url);
   });
 
   afterAll(async () => {

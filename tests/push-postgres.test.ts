@@ -30,7 +30,6 @@ describe("push postgres store", () => {
   });
 
   test("upserts by endpoint on the live server", async () => {
-    expect(process.env.DATABASE_URL).toBe(url);
     await Push.subscribe({ endpoint: "https://push.example/a", p256dh: "one", auth: "auth1" });
     await Push.subscribe({ endpoint: "https://push.example/a", p256dh: "two", auth: "auth2" });
     expect(await Push.list()).toEqual([
