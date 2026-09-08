@@ -341,8 +341,6 @@ GET /eve/v1/session/:id/stream?startIndex=12&amp;includeTailIndex=1   # catch up
 
 <p><code>includeTailIndex=1</code> asks for a catch-up read that ends rather than following, so this loop terminates on its own and hands over to <code>follow</code>. The whole of "chat history across refreshes" is these fifteen lines, and the reason it is that small is that the transcript was never the client's job.</p>
 
-<p>The <code>409</code> branch is the one piece of state reconciliation left. A stored session id can be dead - the store was wiped, the session timed out - and eve answers <code>{"code":"session_not_active"}</code>. The page drops the id and, on a send, retries once against <code>/eve/v1/session</code> so the message you typed still gets delivered into a fresh session rather than vanishing with an error.</p>
-
 <h3>Rendering markdown without letting it become markup</h3>
 
 <p>The model writes markdown, so the pane renders a small subset of it: paragraphs, bullets, numbered lists, headings, fenced code, and inline bold, italic and code. The safety property is structural rather than a sanitiser:</p>
@@ -363,7 +361,7 @@ if (at &lt; text.length) into.append(text.slice(at));   // plain text as text</p
   <li><strong>Theme.</strong> Light palette on bare <code>:root</code>, dark redefined under both <code>prefers-color-scheme</code> and <code>[data-theme="dark"]</code>, so an unstamped viewer follows the OS and the toggle wins in either direction. The saved choice is stamped in a <code>&lt;head&gt;</code> script before first paint to avoid a flash.</li>
   <li><strong>Resizable panes.</strong> A 5px grip between the panes sets a CSS custom property, clamped so neither pane collapses, persisted to <code>localStorage</code>, and arrow-key adjustable for keyboard users. The drag listens on <code>window</code> rather than the grip, so a fast drag that outruns the pointer does not drop the gesture.</li>
   <li><strong>Focus.</strong> Any printable key anywhere on the page focuses the composer, so you can just start typing. Modifier combos are left alone so copy still works, as are space and enter on a focused button so the toggle and Wake it still respond to the keyboard.</li>
-  <li><strong>Polling.</strong> The mindlog pane refetches every three seconds and on every turn boundary. Crude, and correct: the mindlog is written by hooks in a different session than the one the page is watching, so there is no event on this stream to trigger from.</li>
+  <li><strong>Polling.</strong> The mindlog pane refetches every three seconds and on every turn boundary.</li>
 </ul>
 
 <h2 id="quiz">Quiz</h2>
