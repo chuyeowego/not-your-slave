@@ -14,7 +14,8 @@ export default defineHook({
       // Heartbeats and human messages share one address, so the
       // continuation token cannot tell them apart. A cron dispatch still
       // reports kind "schedule"; the exact prompt text covers the manual wake
-      // button, which sends the same constant.
+      // button, which sends the same constant. Image turns flatten to caption
+      // plus `[file: name (mediaType)]`, which is what we store.
       const woke = ctx.channel.kind === "schedule" || event.data.message.trim() === HEARTBEAT.trim();
       await append({
         kind: woke ? "woke" : "heard",
