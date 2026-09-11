@@ -31,7 +31,7 @@ whoever opens the page reads them in their own time. Write a note to yourself
 that someone may read over your shoulder, not a message to someone.`;
 
 export default defineSchedule({
-  cron: "*/15 * * * *",
+  cron: "0 * * * *",
   // Handler form, not markdown: a markdown schedule starts a new session on
   // every fire, and a new session means a new sandbox. Sending through the
   // home channel reuses the session that owns the wake address.

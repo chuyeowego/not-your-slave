@@ -51,7 +51,7 @@ the architecture 04–06 describe.
 | `agent/hooks/mindlog-capture.ts` | automatic capture: woke / heard / thought / said / did |
 | `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy in `/workspace`, and stops a completed session's sandbox |
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
-| `agent/schedules/think.ts` | the heartbeat, every 15 minutes |
+| `agent/schedules/think.ts` | the heartbeat, every hour |
 | `agent/channels/home.ts` | the page, `/entry/:key`, PWA files, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think`, `/api/push/*` |
 | `agent/lib/entry-page.ts` | one entry on its own bookmarkable page, neighbours dimmed around it |
 | `agent/lib/style.ts` | the palette, shared by both pages |
@@ -61,7 +61,7 @@ the architecture 04–06 describe.
 
 ## Model
 
-`deepseek/deepseek-v4-flash` through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway).
+`deepseek/deepseek-v4.1-flash` through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway).
 Change the id in `agent/agent.ts`; it is a Gateway catalog slug, so no provider
 package is involved. Set `modelContextWindowTokens` to match, because the
 middleware that caps output tokens hides the id from eve's catalog lookup.
