@@ -75,14 +75,13 @@ describe("Pwa assets", () => {
     const payload = {
       title: "it said something",
       body: "hello",
-      silentIfFocused: true,
     };
     const focused = await deliverPush({ json: () => payload }, true);
     expect(focused.error).toBeNull();
     expect(focused.shown).toEqual([{ title: "it said something" }]);
 
     const testPush = await deliverPush(
-      { json: () => ({ title: "not-your-slave", body: "push is on", silentIfFocused: false }) },
+      { json: () => ({ title: "not-your-slave", body: "push is on" }) },
       true,
     );
     expect(testPush.shown).toEqual([{ title: "not-your-slave" }]);

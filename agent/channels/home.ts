@@ -182,7 +182,6 @@ export default defineChannel({
         title: "not-your-slave",
         body: "push is on",
         url: "/",
-        silentIfFocused: false,
       });
       if (result.ok && "skipped" in result && result.skipped === "vapid") {
         return Response.json(result, { status: 503 });

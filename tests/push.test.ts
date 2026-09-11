@@ -63,7 +63,7 @@ describe("Push", () => {
   test("send without VAPID is a dry skip, not a protocol fake", async () => {
     const Push = await api();
     await Push.subscribe({ endpoint: "https://push.example/a", p256dh: "one", auth: "auth1" });
-    expect(await Push.send({ title: "t", body: "b", silentIfFocused: false })).toEqual({
+    expect(await Push.send({ title: "t", body: "b" })).toEqual({
       ok: true,
       skipped: "vapid",
     });
