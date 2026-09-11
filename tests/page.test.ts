@@ -24,6 +24,7 @@ describe("PAGE", () => {
     expect(PAGE).toContain("viewport-fit=cover");
     expect(PAGE).toContain("safe-area-inset");
     expect(PAGE).toContain("Add to Home Screen");
+    expect(PAGE).toContain('notifyBtn.textContent = test.ok ? "test push" : "failed"');
   });
 
   test("inlined scripts parse once the server placeholder is filled", () => {

@@ -69,4 +69,10 @@ describe("Push", () => {
     });
     expect(await Push.fanout("a finished reply")).toEqual({ ok: true, skipped: "vapid" });
   });
+
+  test("the default VAPID subject is not a localhost contact Apple rejects", async () => {
+    const Push = await api();
+    delete process.env.VAPID_SUBJECT;
+    expect(Push.subject()).not.toMatch(/localhost/i);
+  });
 });

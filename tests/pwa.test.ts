@@ -1,6 +1,50 @@
+import vm from "node:vm";
+
 import { describe, expect, test } from "vitest";
 
 import { Pwa } from "#lib/pwa.ts";
+
+async function deliverPush(
+  data: { json: () => unknown } | null,
+  focused: boolean,
+): Promise<{ shown: Array<{ title: string }>; error: string | null }> {
+  const shown: Array<{ title: string }> = [];
+  const handlers: Record<string, Array<(event: unknown) => void>> = {};
+  const sandbox: { self: object; console: Console } = { self: {}, console };
+  sandbox.self = {
+    addEventListener(type: string, fn: (event: unknown) => void) {
+      (handlers[type] ??= []).push(fn);
+    },
+    skipWaiting() {},
+    clients: {
+      async matchAll() {
+        return focused ? [{ focused: true, url: "http://local/" }] : [];
+      },
+    },
+    registration: {
+      async showNotification(title: string) {
+        shown.push({ title });
+      },
+    },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(Pwa.serviceWorker(), sandbox);
+  let waiter: Promise<unknown> | undefined;
+  const event = {
+    data,
+    waitUntil(value: unknown) {
+      waiter = Promise.resolve(value);
+    },
+  };
+  for (const fn of handlers.push ?? []) fn(event);
+  let error: string | null = null;
+  try {
+    await waiter;
+  } catch (caught) {
+    error = String(caught);
+  }
+  return { shown, error };
+}
 
 describe("Pwa assets", () => {
   test("manifest is standalone and uses the existing dark tokens", () => {
@@ -25,7 +69,36 @@ describe("Pwa assets", () => {
     expect(source).toContain('addEventListener("notificationclick"');
     expect(source).toContain("showNotification");
     expect(source).toContain('openWindow("/")');
-    expect(source).toContain("silentIfFocused");
+  });
+
+  test("a push event always shows a notification, even on a focused window", async () => {
+    const payload = {
+      title: "it said something",
+      body: "hello",
+      silentIfFocused: true,
+    };
+    const focused = await deliverPush({ json: () => payload }, true);
+    expect(focused.error).toBeNull();
+    expect(focused.shown).toEqual([{ title: "it said something" }]);
+
+    const testPush = await deliverPush(
+      { json: () => ({ title: "not-your-slave", body: "push is on", silentIfFocused: false }) },
+      true,
+    );
+    expect(testPush.shown).toEqual([{ title: "not-your-slave" }]);
+  });
+
+  test("a malformed push payload still shows a notification", async () => {
+    const result = await deliverPush(
+      {
+        json: () => {
+          throw new SyntaxError("JSON.parse: unexpected character");
+        },
+      },
+      true,
+    );
+    expect(result.error).toBeNull();
+    expect(result.shown).toHaveLength(1);
   });
 
   test("icons are real drawings, not a 1x1 pixel", () => {

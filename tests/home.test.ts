@@ -205,8 +205,7 @@ describe("home channel routes", () => {
     expect(source).toContain('addEventListener("push"');
     expect(source).toContain("showNotification");
     expect(source).toContain("openWindow(\"/\")");
-    expect(source).toContain("silentIfFocused");
-    expect(source).toContain("client.focused");
+    expect(source).toContain("showNotification");
   });
 
   test("POST /api/push/subscribe validates the Web Push subscription shape", async () => {
@@ -245,5 +244,20 @@ describe("home channel routes", () => {
     );
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ ok: true, skipped: "vapid" });
+  });
+
+  test("POST /api/push/test fails when fanout delivered nothing", async () => {
+    vi.stubEnv("VAPID_PUBLIC_KEY", "Bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    vi.stubEnv("VAPID_PRIVATE_KEY", "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy");
+    vi.stubEnv("VAPID_SUBJECT", "mailto:you@example.com");
+    const home = await channel();
+    const { Push } = await import("#lib/push.ts");
+    vi.spyOn(Push, "send").mockResolvedValue({ ok: true, sent: 0 });
+    const res = await HomeRoutes.handler(home, "POST", "/api/push/test")(
+      new Request("http://local/api/push/test", { method: "POST" }),
+      HomeRoutes.args(),
+    );
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ ok: true, sent: 0 });
   });
 });
