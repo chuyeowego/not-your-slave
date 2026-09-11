@@ -96,9 +96,12 @@ Home Screen** — a Safari tab cannot receive it, and this UI will say so instea
 of pretending.
 
 A new mindlog `said` (a completed or interrupted agent reply) fans out to stored
-subscriptions. The service worker suppresses the banner on a focused window of
-that device. Heartbeat `woke` entries do not notify. Tap **Notify** / **test
+subscriptions. Heartbeat `woke` entries do not notify. Tap **Notify** / **test
 push** to send a forced notification without waiting for a live turn.
+
+Safari's push service rejects a VAPID `sub` of `localhost` (`403 BadJwtToken`).
+Leave `VAPID_SUBJECT` unset to use `mailto:you@example.com`, or set a real
+`mailto:` / `https:` contact. Never use `@localhost`.
 
 ## Known limits
 

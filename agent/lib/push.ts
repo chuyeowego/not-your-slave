@@ -62,7 +62,7 @@ export class Push {
   }
 
   static subject(): string {
-    return process.env.VAPID_SUBJECT ?? "mailto:operator@localhost";
+    return process.env.VAPID_SUBJECT ?? "mailto:you@example.com";
   }
 
   static configured(): boolean {

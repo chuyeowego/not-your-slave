@@ -55,13 +55,10 @@ self.addEventListener("push", (event) => {
 });
 
 async function showPush(event) {
-  const data = event.data ? event.data.json() : {};
-  // Said-replies stay quiet on the device you are looking at. A test push
-  // sets silentIfFocused: false so proof does not depend on backgrounding.
-  if (data.silentIfFocused !== false) {
-    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    if (windows.some((client) => client.focused)) return;
-  }
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {}
   await self.registration.showNotification(data.title || "it said something", {
     body: data.body || "",
     icon: "/icon-192.png",
