@@ -116,15 +116,19 @@ describe("home channel routes", () => {
     );
     expect(await multipart.json()).toEqual({ ok: true, sessionId: "ses_img" });
     const sent = send.mock.calls[0]?.[0] as Array<{
-      data?: Uint8Array;
+      data?: string;
       filename?: string;
       mediaType?: string;
       text?: string;
       type: string;
     }>;
     expect(sent[0]).toEqual({ type: "text", text: "look" });
-    expect(sent[1]).toMatchObject({ type: "file", filename: "shot.png", mediaType: "image/png" });
-    expect(sent[1]?.data).toEqual(bytes);
+    expect(sent[1]).toEqual({
+      type: "file",
+      data: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
+      filename: "shot.png",
+      mediaType: "image/png",
+    });
 
     send.mockClear();
     const json = await HomeRoutes.handler(home, "POST", "/api/say")(
@@ -138,8 +142,30 @@ describe("home channel routes", () => {
       HomeRoutes.args({ from: (() => ({ send })) as never }),
     );
     expect(json.status).toBe(200);
-    const onlyFile = send.mock.calls[0]?.[0] as Array<{ filename?: string; type: string }>;
-    expect(onlyFile).toEqual([expect.objectContaining({ type: "file", filename: "x.webp" })]);
+    const onlyFile = send.mock.calls[0]?.[0] as Array<{ data?: string; filename?: string; text?: string; type: string }>;
+    expect(onlyFile).toEqual([
+      { type: "text", text: "(image)" },
+      expect.objectContaining({
+        type: "file",
+        filename: "x.webp",
+        data: `data:image/webp;base64,${Buffer.from(bytes).toString("base64")}`,
+      }),
+    ]);
+  });
+
+  test("POST /api/say returns 500 JSON when send throws", async () => {
+    const send = vi.fn().mockRejectedValue(new Error("queue down"));
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: "hello" }),
+      }),
+      HomeRoutes.args({ from: (() => ({ send })) as never }),
+    );
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: "queue down" });
   });
 
   test("POST /api/say rejects oversize, extra, and non-image files", async () => {

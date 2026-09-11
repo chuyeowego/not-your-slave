@@ -68,8 +68,9 @@ package is involved. Set `modelContextWindowTokens` to match, because the
 middleware that caps output tokens hides the id from eve's catalog lookup.
 
 The home composer can attach jpeg, png, webp, or gif images (file picker, paste,
-or drop). They go to the model as eve file parts on `POST /api/say`, not as
-URLs. Up to four images, 3 MiB each — that is the size eve still restores as
+or drop). They go to the model as eve file parts on `POST /api/say`: a `data:`
+URL so the bytes survive the durable queue, not an http URL the model cannot
+fetch. Up to four images, 3 MiB each — that is the size eve still restores as
 vision bytes.
 
 Credentials, either one:

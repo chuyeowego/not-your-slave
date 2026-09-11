@@ -184,14 +184,20 @@ export async function parseSay(request: Request): Promise<SayResult> {
   return fromJson(body);
 }
 
+const dataUrl = (image: SayImage): string =>
+  `data:${image.mediaType};base64,${Buffer.from(image.bytes).toString("base64")}`;
+
 export function toUserContent(turn: SayTurn): string | UserContent {
   if (turn.images.length === 0) return turn.text;
   const parts: Exclude<UserContent, string> = [];
-  if (turn.text.length > 0) parts.push({ type: "text", text: turn.text });
+  // DeepSeek's vision examples always pair an image with text. A caption-less
+  // send still needs a non-empty text part or the provider can drop the turn.
+  parts.push({ type: "text", text: turn.text.length > 0 ? turn.text : "(image)" });
   for (const image of turn.images) {
     parts.push({
       type: "file",
-      data: image.bytes,
+      // A data: URL survives eve's durable queue; raw Uint8Array often does not.
+      data: dataUrl(image),
       filename: image.filename,
       mediaType: image.mediaType,
     });

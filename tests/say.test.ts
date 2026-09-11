@@ -39,7 +39,13 @@ describe("parseSay", () => {
     expect(parsed.value.images[0]).toMatchObject({ filename: "a.png", mediaType: "image/png" });
     expect(parsed.value.images[0]?.bytes).toEqual(png);
     expect(toUserContent(parsed.value)).toEqual([
-      { type: "file", data: png, filename: "a.png", mediaType: "image/png" },
+      { type: "text", text: "(image)" },
+      {
+        type: "file",
+        data: `data:image/png;base64,${Buffer.from(png).toString("base64")}`,
+        filename: "a.png",
+        mediaType: "image/png",
+      },
     ]);
   });
 
@@ -52,7 +58,12 @@ describe("parseSay", () => {
     if (!parsed.ok) return;
     expect(toUserContent(parsed.value)).toEqual([
       { type: "text", text: "what is this" },
-      { type: "file", data: png, filename: "photo.jpg", mediaType: "image/jpeg" },
+      {
+        type: "file",
+        data: `data:image/jpeg;base64,${Buffer.from(png).toString("base64")}`,
+        filename: "photo.jpg",
+        mediaType: "image/jpeg",
+      },
     ]);
   });
 

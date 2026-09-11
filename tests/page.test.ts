@@ -29,6 +29,7 @@ describe("PAGE", () => {
     expect(PAGE).toContain('id="files"');
     expect(PAGE).toContain("new FormData");
     expect(PAGE).toContain("image/webp");
+    expect(PAGE).toContain("res.json().catch");
     expect(PAGE).toContain(`const SAY = ${JSON.stringify(SAY)}`);
   });
 

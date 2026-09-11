@@ -459,20 +459,26 @@ async function send(text, files) {
   if (text) body.set("message", text);
   for (const file of files || []) body.append("images", file);
 
-  const res = await fetch("/api/say", { method: "POST", body });
-  const started = await res.json();
+  try {
+    const res = await fetch("/api/say", { method: "POST", body });
+    const started = await res.json().catch(() => null);
+    if (!started || !started.ok) {
+      held.push(...files);
+      renderPreviews();
+      bubble("it", "it", "[" + ((started && started.error) || res.status) + "]");
+      statusEl.textContent = "error";
+      return;
+    }
 
-  if (!started.ok) {
+    if (started.sessionId !== sessionId) {
+      sessionId = started.sessionId;
+      void follow(sessionId);
+    }
+  } catch (error) {
     held.push(...files);
     renderPreviews();
-    bubble("it", "it", "[" + (started.error || res.status) + "]");
+    bubble("it", "it", "[" + (error instanceof Error && error.message ? error.message : "send failed") + "]");
     statusEl.textContent = "error";
-    return;
-  }
-
-  if (started.sessionId !== sessionId) {
-    sessionId = started.sessionId;
-    void follow(sessionId);
   }
 }
 

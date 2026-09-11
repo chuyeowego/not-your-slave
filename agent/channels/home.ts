@@ -118,8 +118,13 @@ export default defineChannel({
       const parsed = await parseSay(request);
       if (!parsed.ok) return Response.json({ ok: false, error: parsed.error }, { status: 400 });
 
-      const session = await from(TIMELINE).send(toUserContent(parsed.value), { auth: null });
-      return Response.json({ ok: true, sessionId: session.id });
+      try {
+        const session = await from(TIMELINE).send(toUserContent(parsed.value), { auth: null });
+        return Response.json({ ok: true, sessionId: session.id });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "send failed";
+        return Response.json({ ok: false, error: message }, { status: 500 });
+      }
     }),
 
     GET("/api/mindlog", async (request) => {
