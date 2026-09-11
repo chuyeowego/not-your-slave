@@ -1,4 +1,5 @@
 import { MARKDOWN_JS } from "./markdown.ts";
+import { SAY } from "./say.ts";
 import { FONTS, RENDERED, THEME_BOOTSTRAP, TOKENS } from "./style.ts";
 
 export const PAGE = String.raw`<!doctype html>
@@ -103,11 +104,36 @@ ${RENDERED}
   .msg a:hover { text-decoration-thickness: 2px; }
   .msg code, .msg pre { background: var(--panel); }
   form {
-    display: flex; gap: .6rem; align-items: flex-end;
+    display: flex; flex-direction: column; gap: .5rem;
     padding: 1rem 1.2rem max(1rem, env(safe-area-inset-bottom));
     border-top: 1px solid var(--rule); flex: 0 0 auto;
   }
-  form button { flex: 0 0 auto; height: 2.6rem; }
+  form.drop { border-top-color: var(--hot); }
+  .compose { display: flex; gap: .6rem; align-items: flex-end; }
+  .compose button { flex: 0 0 auto; height: 2.6rem; }
+  .previews { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .previews:empty { display: none; }
+  .chip {
+    position: relative; width: 3.4rem; height: 3.4rem;
+    border: 1px solid var(--rule); border-radius: 2px; overflow: hidden;
+    background: var(--panel);
+  }
+  .chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .chip .x {
+    position: absolute; top: 0; right: 0; height: auto; min-height: 0;
+    padding: 0 .28rem; line-height: 1.2; border: 0; background: var(--bg);
+    color: var(--dim); font-size: .7rem; letter-spacing: 0;
+  }
+  .msg .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
+  .msg .pic {
+    max-width: 12rem; max-height: 9rem; object-fit: cover; display: block;
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
+  .msg .pic-name {
+    font-family: var(--mono); font-size: .58rem; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--faint);
+    border: 1px dashed var(--rule); border-radius: 2px; padding: .35rem .5rem;
+  }
   textarea {
     flex: 1; resize: none; font: inherit; color: var(--ink);
     background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
@@ -160,8 +186,13 @@ ${RENDERED}
     <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><button id="notify" type="button">notify</button><span id="status">idle</span><button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button></header>
     <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
     <form id="composer">
-      <textarea id="input" rows="1"></textarea>
-      <button type="submit" title="Send (Cmd/Ctrl+Enter)">Send</button>
+      <div id="previews" class="previews"></div>
+      <div class="compose">
+        <input id="files" type="file" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" multiple hidden />
+        <button type="button" id="attach" title="Attach images">Attach</button>
+        <textarea id="input" rows="1"></textarea>
+        <button type="submit" title="Send (Cmd/Ctrl+Enter)">Send</button>
+      </div>
     </form>
   </section>
   <div class="grip" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the mindlog"></div>
@@ -179,7 +210,10 @@ let sessionId = null;
 
 // Replaced when the page is served: the first line of the heartbeat prompt.
 const WAKE_PREFIX = __WAKE_PREFIX__;
+const SAY = ${JSON.stringify(SAY)};
 const isWake = (text) => typeof text === "string" && text.startsWith(WAKE_PREFIX);
+const ALLOWED = new Set(SAY.types);
+const FILE_MARK = /\[file: (.+) \(([^)]+)\)\]/g;
 
 function wokeMarker(prepend) {
   chat.querySelector(".empty")?.remove();
@@ -202,12 +236,44 @@ function place(node, prepend) {
   }
 }
 
-function bubble(cls, who, text, prepend) {
+function takeFiles(text) {
+  FILE_MARK.lastIndex = 0;
+  const files = [];
+  const caption = String(text ?? "").replace(FILE_MARK, (_, name) => {
+    files.push(name);
+    return "";
+  }).trim();
+  return { caption, files };
+}
+
+function picStrip(blobs, names) {
+  const strip = el("div", "pics");
+  if (blobs && blobs.length) {
+    for (const file of blobs) {
+      const img = document.createElement("img");
+      img.className = "pic";
+      img.alt = file.name || "attached image";
+      img.src = URL.createObjectURL(file);
+      img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
+      strip.append(img);
+    }
+    return strip;
+  }
+  for (const name of names) strip.append(el("span", "pic-name", name));
+  return strip;
+}
+
+function bubble(cls, who, text, prepend, blobs) {
   chat.querySelector(".empty")?.remove();
   const wrap = el("div", "msg " + cls);
+  const parsed = takeFiles(text);
+  wrap.append(el("span", "who", who));
+  if ((blobs && blobs.length) || parsed.files.length) {
+    wrap.append(picStrip(blobs, parsed.files));
+  }
   const body = el("div", "body");
-  setMessage(body, text);
-  wrap.append(el("span", "who", who), body);
+  if (parsed.caption) setMessage(body, parsed.caption);
+  wrap.append(body);
   place(wrap, prepend);
   return body;
 }
@@ -385,26 +451,34 @@ function handle(event) {
   }
 }
 
-async function send(text) {
-  bubble("me", "you", text);
+async function send(text, files) {
+  bubble("me", "you", text, false, files);
   statusEl.textContent = "thinking";
 
-  const res = await fetch("/api/say", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ message: text }),
-  });
-  const started = await res.json();
+  const body = new FormData();
+  if (text) body.set("message", text);
+  for (const file of files || []) body.append("images", file);
 
-  if (!started.ok) {
-    bubble("it", "it", "[" + (started.error || res.status) + "]");
+  try {
+    const res = await fetch("/api/say", { method: "POST", body });
+    const started = await res.json().catch(() => null);
+    if (!started || !started.ok) {
+      held.push(...files);
+      renderPreviews();
+      bubble("it", "it", "[" + ((started && started.error) || res.status) + "]");
+      statusEl.textContent = "error";
+      return;
+    }
+
+    if (started.sessionId !== sessionId) {
+      sessionId = started.sessionId;
+      void follow(sessionId);
+    }
+  } catch (error) {
+    held.push(...files);
+    renderPreviews();
+    bubble("it", "it", "[" + (error instanceof Error && error.message ? error.message : "send failed") + "]");
     statusEl.textContent = "error";
-    return;
-  }
-
-  if (started.sessionId !== sessionId) {
-    sessionId = started.sessionId;
-    void follow(sessionId);
   }
 }
 
@@ -425,13 +499,116 @@ document.addEventListener("keydown", (e) => {
   if (e.key.length === 1 || e.key === "Backspace") input.focus();
 });
 
-document.getElementById("composer").addEventListener("submit", (e) => {
+const composer = document.getElementById("composer");
+const fileInput = document.getElementById("files");
+const previews = document.getElementById("previews");
+const held = [];
+
+function mediaTypeOf(file) {
+  const raw = (file.type || "").trim().toLowerCase();
+  if (ALLOWED.has(raw)) return raw;
+  if (raw === "image/jpg" || raw === "image/pjpeg") return "image/jpeg";
+  if (raw === "image/x-png") return "image/png";
+  const name = file.name || "";
+  const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+  if (ext === "jpg" || ext === "jpeg" || ext === "jpe") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  return "";
+}
+
+function note(error) {
+  statusEl.textContent = error;
+}
+
+function renderPreviews() {
+  previews.replaceChildren();
+  held.forEach((file, index) => {
+    const chip = el("div", "chip");
+    const img = document.createElement("img");
+    img.alt = file.name || "image";
+    img.src = URL.createObjectURL(file);
+    img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
+    const x = el("button", "x", "×");
+    x.type = "button";
+    x.setAttribute("aria-label", "Remove " + (file.name || "image"));
+    x.addEventListener("click", () => {
+      held.splice(index, 1);
+      renderPreviews();
+    });
+    chip.append(img, x);
+    previews.append(chip);
+  });
+}
+
+function addFiles(list) {
+  let error = "";
+  for (const file of list) {
+    if (!file) continue;
+    if (!mediaTypeOf(file)) { error = "unsupported image type"; continue; }
+    if (file.size === 0) { error = "empty image"; continue; }
+    if (file.size > SAY.maxBytes) { error = "image too large (max " + (SAY.maxBytes / (1024 * 1024)) + " MiB)"; continue; }
+    if (held.length >= SAY.maxImages) { error = "too many images (max " + SAY.maxImages + ")"; break; }
+    held.push(file);
+  }
+  renderPreviews();
+  if (error) note(error);
+}
+
+document.getElementById("attach").addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  addFiles([...fileInput.files]);
+  fileInput.value = "";
+});
+
+function filesFrom(data) {
+  if (!data) return [];
+  return [...data.files].filter((file) => mediaTypeOf(file));
+}
+
+function fileDrag(e) {
+  return [...(e.dataTransfer?.types || [])].includes("Files");
+}
+composer.addEventListener("dragover", (e) => {
+  if (!fileDrag(e)) return;
+  e.preventDefault();
+  composer.classList.add("drop");
+});
+chat.addEventListener("dragover", (e) => {
+  if (!fileDrag(e)) return;
+  e.preventDefault();
+  composer.classList.add("drop");
+});
+const clearDrop = () => composer.classList.remove("drop");
+composer.addEventListener("dragleave", clearDrop);
+chat.addEventListener("dragleave", clearDrop);
+const onDrop = (e) => {
+  clearDrop();
+  const files = filesFrom(e.dataTransfer);
+  if (files.length === 0) return;
+  e.preventDefault();
+  addFiles(files);
+};
+composer.addEventListener("drop", onDrop);
+chat.addEventListener("drop", onDrop);
+
+document.addEventListener("paste", (e) => {
+  const files = filesFrom(e.clipboardData);
+  if (files.length === 0) return;
+  e.preventDefault();
+  addFiles(files);
+});
+
+composer.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  if (!text) return;
+  const files = held.splice(0, held.length);
+  if (!text && files.length === 0) return;
   input.value = "";
+  renderPreviews();
   fitInput();
-  void send(text);
+  void send(text, files);
 });
 
 function fitInput() {
@@ -447,7 +624,7 @@ input.addEventListener("input", fitInput);
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
     e.preventDefault();
-    document.getElementById("composer").requestSubmit();
+    composer.requestSubmit();
   }
 });
 

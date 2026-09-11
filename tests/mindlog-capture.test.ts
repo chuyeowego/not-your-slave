@@ -70,6 +70,20 @@ describe("mindlog capture hook", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  test("a flattened image turn is heard as caption plus file placeholders", async () => {
+    await fire("message.received", {
+      message: "look\n[file: shot.png (image/png)]",
+      parts: [
+        { type: "text", text: "look" },
+        { type: "file", filename: "shot.png", mediaType: "image/png" },
+      ],
+    });
+    expect((await read())[0]).toMatchObject({
+      kind: "heard",
+      text: "look\n[file: shot.png (image/png)]",
+    });
+  });
+
   test("reasoning lands as thought", async () => {
     await fire("reasoning.completed", { reasoning: "maybe the log is enough" });
     expect((await read())[0]).toMatchObject({ kind: "thought", text: "maybe the log is enough" });

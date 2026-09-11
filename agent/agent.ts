@@ -5,11 +5,40 @@ import { gateway, wrapLanguageModel, type LanguageModelMiddleware } from "ai";
 // ceiling cannot stop a runaway mid-generation. Capping every call can.
 const CAP = 4096;
 
-const capOutputTokens: LanguageModelMiddleware = {
-  transformParams: async ({ params }) => ({
-    ...params,
-    maxOutputTokens: Math.min(params.maxOutputTokens ?? CAP, CAP),
-  }),
+export const promptHasImage = (prompt: unknown): boolean => {
+  if (!Array.isArray(prompt)) return false;
+  return prompt.some((message) => {
+    if (message === null || typeof message !== "object") return false;
+    const content = (message as { content?: unknown }).content;
+    if (!Array.isArray(content)) return false;
+    return content.some((part) => {
+      if (part === null || typeof part !== "object") return false;
+      const item = part as { mediaType?: unknown; type?: unknown };
+      if (item.type === "image") return true;
+      return item.type === "file" && typeof item.mediaType === "string" && item.mediaType.startsWith("image/");
+    });
+  });
+};
+
+export const capOutputTokens: LanguageModelMiddleware = {
+  transformParams: async ({ params }) => {
+    const gatewayOptions =
+      params.providerOptions?.gateway !== null && typeof params.providerOptions?.gateway === "object"
+        ? params.providerOptions.gateway
+        : {};
+    return {
+      ...params,
+      maxOutputTokens: Math.min(params.maxOutputTokens ?? CAP, CAP),
+      ...(promptHasImage(params.prompt)
+        ? {
+            providerOptions: {
+              ...params.providerOptions,
+              gateway: { ...gatewayOptions, has: ["vision"] as const },
+            },
+          }
+        : {}),
+    };
+  },
 };
 
 export default defineAgent({
