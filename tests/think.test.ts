@@ -4,9 +4,9 @@ import home from "#channels/home.ts";
 import think, { HEARTBEAT, TIMELINE } from "#schedules/think.ts";
 
 describe("think schedule", () => {
-  test("exports the shared address and a 15-minute cron", () => {
+  test("exports the shared address and an hourly cron", () => {
     expect(TIMELINE).toBe("timeline");
-    expect(think.cron).toBe("*/15 * * * *");
+    expect(think.cron).toBe("0 * * * *");
     expect(HEARTBEAT).toContain("Read your mindlog with `mindlog_read`");
     expect(HEARTBEAT).toContain("Nobody asked for this");
   });

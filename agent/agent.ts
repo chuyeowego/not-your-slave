@@ -17,7 +17,7 @@ export default defineAgent({
   // a linked project's VERCEL_OIDC_TOKEN) and the model id can change without
   // touching a provider package.
   model: wrapLanguageModel({
-    model: gateway("deepseek/deepseek-v4-flash"),
+    model: gateway("deepseek/deepseek-v4.1-flash"),
     middleware: capOutputTokens,
   }),
   // The wrapper hides the model id from eve's catalog lookup ("gateway/…"), so
