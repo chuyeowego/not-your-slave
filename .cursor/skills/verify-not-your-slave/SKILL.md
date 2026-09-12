@@ -48,10 +48,18 @@ What it does, and why each part matters:
 - **It runs in tmux** (`nys-verify-<port>`, recorded in `$RUN_DIR/tmux-session`)
   with output teed to `$RUN_DIR/dev.log`.
 
-Two instances coexist fine as long as each gets its own `--port` and
-`--run-dir`. They do share the repo checkout, so do not run two launches with
-different `--sandbox` values at once — the second rewrites `agent/sandbox.ts`
-under the first.
+**One instance per checkout — this is not negotiable.** Separate `--port` and
+`--run-dir` values are not enough. `eve dev` owns `.eve/` for the whole
+checkout, and on shutdown it acts on the `dev-cleanup-intent` it registered and
+deletes the shared compile output. Stopping the second instance therefore guts
+the first, which starts answering 500 with a missing
+`.eve/compile/compiled-agent-manifest.json` — a failure that looks like an app
+bug and is not one. The two would also fight over `agent/sandbox.ts`.
+
+`launch.sh` refuses to start while another `nys-verify-*` tmux session exists
+and tells you which one to clean up first. Relaunching on the *same* port is
+fine: that replaces the instance rather than racing it. To verify two revisions
+side by side, use two checkouts.
 
 ## Doctor
 
@@ -167,5 +175,10 @@ too, so a broken iteration does not strand a server on the port.
 | `lib/cdp.mjs` | `import { withPage } from "../lib/cdp.mjs"` |
 | `lib/fixtures.mjs` | `pngFixture({ width, height, rgb })` builds real PNG bytes; `notAnImage()` |
 
-All four `bin/` entries also read `NYS_PORT` and `NYS_RUN_DIR`, which is the
-tidier way to run several commands against one instance.
+All four `bin/` entries read `NYS_PORT` and `NYS_RUN_DIR` as well as the flags,
+which is the tidier way to run several commands against one instance.
+
+`--run-dir` alone is enough after launch: `launch.sh` records its port in
+`$RUN_DIR/port`, and doctor, drive and cleanup read it back. Explicit `--port`
+or `NYS_PORT` still wins. This matters most for cleanup — resolving the port
+from the run dir is what stops it killing whatever else happens to hold 2999.

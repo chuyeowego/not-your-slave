@@ -3,7 +3,7 @@
 //
 //   node bin/drive.mjs <scenario> [--port N] [--run-dir DIR]
 //   node bin/drive.mjs --list
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,8 +29,12 @@ if (!listed.includes(name)) {
   process.exit(2);
 }
 
-const port = Number(flag("port", process.env.NYS_PORT ?? 2999));
 const runDir = flag("run-dir", process.env.NYS_RUN_DIR ?? "/tmp/nys-verify/adhoc");
+
+// The run dir records the port its launch took. Without this, driving a run
+// that chose a non-default port silently exercises whatever holds 2999.
+const recordedPort = await readFile(join(runDir, "port"), "utf8").catch(() => "");
+const port = Number(flag("port", process.env.NYS_PORT ?? recordedPort.trim() ?? "") || 2999);
 const outDir = join(runDir, name);
 await mkdir(outDir, { recursive: true });
 

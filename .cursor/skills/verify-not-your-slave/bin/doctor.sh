@@ -2,7 +2,7 @@
 # Read-only: is this instance worth driving, and which tier of proof can it give?
 set -uo pipefail
 
-PORT="${NYS_PORT:-2999}"
+PORT="${NYS_PORT:-}"
 RUN_DIR="${NYS_RUN_DIR:-}"
 
 while [ $# -gt 0 ]; do
@@ -13,6 +13,11 @@ while [ $# -gt 0 ]; do
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
+
+# A run dir knows which port it launched; reporting on the default instead would
+# describe some other instance entirely.
+[ -z "$PORT" ] && [ -n "$RUN_DIR" ] && [ -f "$RUN_DIR/port" ] && PORT="$(cat "$RUN_DIR/port")"
+PORT="${PORT:-2999}"
 
 BASE="http://127.0.0.1:$PORT"
 fail=0
@@ -36,6 +41,11 @@ if [ -n "$RUN_DIR" ] && [ -f "$RUN_DIR/dev.log" ]; then
     say "sandbox" "FAIL — provisioning failed; relaunch with --sandbox just-bash"
     fail=1
   fi
+fi
+
+SCAFFOLD="$(dirname "${BASH_SOURCE[0]}")/../../../../agent/sandbox.ts"
+if [ -f "$SCAFFOLD" ] && grep -qF "VERIFICATION SCAFFOLDING" "$SCAFFOLD"; then
+  say "scaffold" "present (expected while an instance runs; cleanup.sh removes it — do not commit)"
 fi
 
 if [ -n "${AI_GATEWAY_API_KEY:-}${VERCEL_OIDC_TOKEN:-}" ] || grep -qs 'AI_GATEWAY_API_KEY\|VERCEL_OIDC_TOKEN' "$(dirname "${BASH_SOURCE[0]}")/../../../../.env.local"; then

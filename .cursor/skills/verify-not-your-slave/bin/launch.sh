@@ -23,6 +23,23 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+TMUX="tmux"
+[ -f /exec-daemon/tmux.portal.conf ] && TMUX="tmux -f /exec-daemon/tmux.portal.conf"
+
+# eve dev owns .eve/ for the whole checkout. On shutdown it acts on the
+# dev-cleanup-intent it registered and removes the shared compile output, which
+# guts any other dev server still serving from it — the victim starts answering
+# 500 with a missing compiled-agent-manifest.json. Separate ports and run dirs
+# do not help. Refuse, rather than hand back a run whose failures are really
+# the other run's teardown.
+others=$($TMUX list-sessions -F '#S' 2>/dev/null | grep '^nys-verify-' | grep -vx "$SESSION" || true)
+if [ -n "$others" ]; then
+  echo "refusing to launch: a verification instance is already running ($(echo "$others" | tr '\n' ' '))." >&2
+  echo "eve dev shares .eve/ across this checkout, so a second instance breaks both." >&2
+  echo "Stop that one first:  bin/cleanup.sh --run-dir <its run dir>" >&2
+  exit 1
+fi
+
 mkdir -p "$RUN_DIR"
 echo "$PORT" > "$RUN_DIR/port"
 echo "$SESSION" > "$RUN_DIR/tmux-session"
@@ -42,10 +59,17 @@ fi
 # container per session: minutes on a cold machine, and impossible where nested
 # virtualisation is unavailable. The web surface does not need real binaries, so
 # verification stubs the sandbox and records that it did.
+#
+# Ownership is decided by the marker in the file, never by which run wrote it.
+# Keying off "did this run create it" loses the scaffold the moment a relaunch
+# finds one already there: every later run records skipped, no cleanup ever
+# removes it, and an untracked agent/sandbox.ts sits in the tree waiting for
+# someone's `git add -A`.
 SCAFFOLD="$REPO_DIR/agent/sandbox.ts"
+SCAFFOLD_MARKER="VERIFICATION SCAFFOLDING — written by .cursor/skills/verify-not-your-slave"
 if [ "$SANDBOX" = "just-bash" ]; then
-  if [ -e "$SCAFFOLD" ]; then
-    echo "scaffold-skipped: agent/sandbox.ts already exists; leaving it alone" | tee "$RUN_DIR/scaffold.txt"
+  if [ -e "$SCAFFOLD" ] && ! grep -qF "$SCAFFOLD_MARKER" "$SCAFFOLD"; then
+    echo "scaffold-skipped: agent/sandbox.ts is a real config, not ours; leaving it alone" | tee "$RUN_DIR/scaffold.txt"
   else
     cat > "$SCAFFOLD" <<'EOF'
 // VERIFICATION SCAFFOLDING — written by .cursor/skills/verify-not-your-slave.
@@ -65,9 +89,6 @@ fi
 # eve keeps durable session state under .eve. A session left failed by an earlier
 # run swallows new messages, so verification starts from a clean slate.
 rm -rf "$REPO_DIR/.eve/.workflow-data" "$REPO_DIR/.eve/dev-runtime" "$REPO_DIR/.eve/dev-server-state.v1.json"
-
-TMUX="tmux"
-[ -f /exec-daemon/tmux.portal.conf ] && TMUX="tmux -f /exec-daemon/tmux.portal.conf"
 
 $TMUX kill-session -t "=$SESSION" 2>/dev/null || true
 $TMUX new-session -d -s "$SESSION" -c "$REPO_DIR" -- bash -l
