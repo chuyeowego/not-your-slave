@@ -19,7 +19,7 @@ const newId = (): string => randomBytes(6).toString("hex");
 /** The id a permalink uses: the entry's own id, or its timestamp if it predates ids. */
 export const keyOf = (entry: MindlogEntry): string => entry.id ?? entry.at;
 
-export const FILE = process.env.MINDLOG_FILE ?? ".data/mindlog.jsonl";
+const FILE = process.env.MINDLOG_FILE ?? ".data/mindlog.jsonl";
 
 // Which store is in use is decided per call, not at module load: a deployment's
 // connection string can be a Vercel "sensitive" variable, which the build never

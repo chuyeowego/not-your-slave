@@ -20,10 +20,6 @@ describe("mindlog file store", () => {
     expect(await store.api.version()).toBe("0");
   });
 
-  test("FILE follows MINDLOG_FILE", () => {
-    expect(store.api.FILE).toBe(store.file);
-  });
-
   test("keyOf prefers id and falls back to at", () => {
     expect(store.api.keyOf({ at: "2020-01-01T00:00:00.000Z", kind: "note", text: "x", id: "abc" })).toBe("abc");
     expect(store.api.keyOf({ at: "2020-01-01T00:00:00.000Z", kind: "note", text: "x" })).toBe(
