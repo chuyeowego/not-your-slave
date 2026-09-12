@@ -26,16 +26,14 @@ done
 TMUX="tmux"
 [ -f /exec-daemon/tmux.portal.conf ] && TMUX="tmux -f /exec-daemon/tmux.portal.conf"
 
-# eve dev owns .eve/ for the whole checkout. On shutdown it acts on the
-# dev-cleanup-intent it registered and removes the shared compile output, which
-# guts any other dev server still serving from it — the victim starts answering
-# 500 with a missing compiled-agent-manifest.json. Separate ports and run dirs
-# do not help. Refuse, rather than hand back a run whose failures are really
-# the other run's teardown.
+# This launch clears durable session state below, which belongs to the whole
+# checkout. Doing that under a running instance disturbs it, so stop rather than
+# quietly interfere. (eve refuses a second dev server per checkout on its own
+# too; this fires earlier and names the run dir to clean up.)
 others=$($TMUX list-sessions -F '#S' 2>/dev/null | grep '^nys-verify-' | grep -vx "$SESSION" || true)
 if [ -n "$others" ]; then
   echo "refusing to launch: a verification instance is already running ($(echo "$others" | tr '\n' ' '))." >&2
-  echo "eve dev shares .eve/ across this checkout, so a second instance breaks both." >&2
+  echo "Launching clears durable session state shared by the checkout." >&2
   echo "Stop that one first:  bin/cleanup.sh --run-dir <its run dir>" >&2
   exit 1
 fi
@@ -86,9 +84,13 @@ EOF
   fi
 fi
 
-# eve keeps durable session state under .eve. A session left failed by an earlier
-# run swallows new messages, so verification starts from a clean slate.
-rm -rf "$REPO_DIR/.eve/.workflow-data" "$REPO_DIR/.eve/dev-runtime" "$REPO_DIR/.eve/dev-server-state.v1.json"
+# A session left failed by an earlier run gets reused and swallows new messages,
+# so verification starts from a clean slate. Only .workflow-data holds that
+# state. Do not widen this: .eve/dev-runtime holds the compiled snapshot a live
+# server is executing from, and .eve/dev-server-state.v1.json is eve's own
+# single-instance guard, which recovers from staleness by itself. Deleting
+# either breaks a running instance or disables a working safety net.
+rm -rf "$REPO_DIR/.eve/.workflow-data"
 
 $TMUX kill-session -t "=$SESSION" 2>/dev/null || true
 $TMUX new-session -d -s "$SESSION" -c "$REPO_DIR" -- bash -l

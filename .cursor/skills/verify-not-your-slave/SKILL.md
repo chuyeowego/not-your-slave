@@ -42,24 +42,30 @@ What it does, and why each part matters:
 - **The mindlog is redirected.** `MINDLOG_FILE=$RUN_DIR/mindlog.jsonl` keeps the
   run out of `.data/mindlog.jsonl`, so driving the app never pollutes the
   user's own history.
-- **Durable state is wiped first.** `.eve/.workflow-data`, `.eve/dev-runtime`
-  and `.eve/dev-server-state.v1.json` are removed before start. A session left
-  failed by an earlier run gets reused and silently swallows every new message.
+- **Durable session state is wiped first, and only that.** `.eve/.workflow-data`
+  is removed before start, because a session left failed by an earlier run gets
+  reused and silently swallows every new message. Nothing else under `.eve` is
+  touched, by either launch or cleanup — see the warning below.
 - **It runs in tmux** (`nys-verify-<port>`, recorded in `$RUN_DIR/tmux-session`)
   with output teed to `$RUN_DIR/dev.log`.
 
-**One instance per checkout — this is not negotiable.** Separate `--port` and
-`--run-dir` values are not enough. `eve dev` owns `.eve/` for the whole
-checkout, and on shutdown it acts on the `dev-cleanup-intent` it registered and
-deletes the shared compile output. Stopping the second instance therefore guts
-the first, which starts answering 500 with a missing
-`.eve/compile/compiled-agent-manifest.json` — a failure that looks like an app
-bug and is not one. The two would also fight over `agent/sandbox.ts`.
+**One instance at a time, by choice rather than necessity.** `launch.sh` refuses
+while another `nys-verify-*` tmux session exists, because launching clears
+durable session state (`.eve/.workflow-data`) that belongs to the whole
+checkout, and doing that under a running server disturbs it. eve independently
+refuses a second `eve dev` per checkout and points you at the running one.
+Relaunching on the *same* port is fine — that replaces the instance rather than
+racing it. The two would also fight over `agent/sandbox.ts`.
 
-`launch.sh` refuses to start while another `nys-verify-*` tmux session exists
-and tells you which one to clean up first. Relaunching on the *same* port is
-fine: that replaces the instance rather than racing it. To verify two revisions
-side by side, use two checkouts.
+**Never widen the state wipe.** `.eve/dev-runtime` holds the compiled snapshot
+the live server is executing from — the running app's `appRoot` is a directory
+underneath it, not the repo root. Deleting it mid-run leaves the server
+answering 500 with a missing `.eve/compile/compiled-agent-manifest.json`, which
+reads as an app bug and is not one. `.eve/dev-server-state.v1.json` is eve's own
+single-instance guard; it recovers from a stale entry by probing the URL, so
+deleting it only disables a working safety net. Both were in this script's wipe
+list once, and between them they broke a running instance and let a second one
+start that should have been refused.
 
 ## Doctor
 
@@ -157,9 +163,11 @@ surface never crosses.
 ```
 
 Kills the tmux session named in `$RUN_DIR/tmux-session`, kills the process
-holding the port (found with `lsof`, never `pkill` by name — another checkout's
-dev server is not ours to kill), deletes `agent/sandbox.ts` only when
-`scaffold.txt` says this run created it, and clears the durable session state.
+holding the port recorded in `$RUN_DIR/port` (found with `lsof`, never `pkill`
+by name — another checkout's dev server is not ours to kill), and deletes
+`agent/sandbox.ts` when it carries the verification marker. It leaves `.eve`
+alone: that state belongs to the checkout, and the next launch clears the one
+piece that goes stale while nothing is running.
 
 **The run dir survives**, evidence and all. Run cleanup after failed attempts
 too, so a broken iteration does not strand a server on the port.

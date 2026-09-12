@@ -42,18 +42,28 @@ if [ -n "${pid:-}" ]; then
   kill "$pid" 2>/dev/null && echo "stopped listener on :$PORT (pid $pid)"
 fi
 
-# Remove the scaffold when it carries our marker, whichever run wrote it. A
-# real agent/sandbox.ts has no marker and is never touched.
+# Remove the scaffold when it carries our marker, whichever run wrote it — but
+# only once no verification instance is left running. A live server is executing
+# with that backend, and pulling the file mid-run silently switches it back to
+# the default. A real agent/sandbox.ts has no marker and is never touched.
 SCAFFOLD="$REPO_DIR/agent/sandbox.ts"
-if [ -f "$SCAFFOLD" ] && grep -qF "VERIFICATION SCAFFOLDING — written by .cursor/skills/verify-not-your-slave" "$SCAFFOLD"; then
+remaining=$($TMUX list-sessions -F '#S' 2>/dev/null | grep -c '^nys-verify-') || remaining=0
+if [ ! -f "$SCAFFOLD" ]; then
+  :
+elif ! grep -qF "VERIFICATION SCAFFOLDING — written by .cursor/skills/verify-not-your-slave" "$SCAFFOLD"; then
+  echo "left agent/sandbox.ts alone (not ours)"
+elif [ "$remaining" -gt 0 ]; then
+  echo "left the scaffold in place: another verification instance is still running"
+else
   rm -f "$SCAFFOLD"
   echo "removed verification scaffold agent/sandbox.ts"
-elif [ -f "$SCAFFOLD" ]; then
-  echo "left agent/sandbox.ts alone (not ours)"
 fi
 
-rm -rf "$REPO_DIR/.eve/.workflow-data" "$REPO_DIR/.eve/dev-runtime" "$REPO_DIR/.eve/dev-server-state.v1.json"
-echo "cleared dev session state"
+# .eve is deliberately left alone. It belongs to the checkout, not to this run:
+# .eve/dev-runtime is the compiled snapshot a live server executes from, and
+# deleting it here is what once left another instance answering 500 with a
+# missing compiled-agent-manifest.json. The next launch clears the one piece
+# that actually goes stale (.workflow-data) while nothing is running.
 
 [ -n "$RUN_DIR" ] && echo "evidence kept: $RUN_DIR"
 exit 0
