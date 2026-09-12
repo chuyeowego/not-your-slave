@@ -11,13 +11,6 @@ export interface RawMindlogRow {
   session_id?: string | null;
 }
 
-export interface PostgresFingerprint {
-  version: string;
-  database: string;
-  host: string;
-  port: string;
-}
-
 /**
  * Live Postgres for mindlog tests: a throwaway database, then the real
  * `postgres` client and `mindlog.ts`. File-store tests never see this URL.
@@ -29,7 +22,6 @@ export class LivePostgres {
     readonly url: string,
     readonly api: MindlogApi,
     readonly sql: ReturnType<typeof postgres>,
-    readonly fingerprint: PostgresFingerprint,
   ) {}
 
   static advertisedUrl(): string {
@@ -45,7 +37,7 @@ export class LivePostgres {
     return parsed.href;
   }
 
-  static describe(url: string): Pick<PostgresFingerprint, "host" | "port"> {
+  static describe(url: string): { host: string; port: string } {
     const parsed = new URL(url);
     return { host: parsed.hostname, port: parsed.port || "5432" };
   }
@@ -102,16 +94,7 @@ export class LivePostgres {
     await api.version();
     await sql`truncate mindlog restart identity`;
 
-    const [row] = await sql<{ version: string; database: string }[]>`
-      select version() as version, current_database() as database
-    `;
-    const { host, port } = LivePostgres.describe(url);
-    return new LivePostgres(url, api, sql, {
-      version: row.version,
-      database: row.database,
-      host,
-      port,
-    });
+    return new LivePostgres(url, api, sql);
   }
 
   async reset(): Promise<void> {

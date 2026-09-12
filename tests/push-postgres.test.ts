@@ -17,7 +17,6 @@ describe("push postgres store", () => {
     sql = postgres(url, { max: 1 });
     await LivePostgres.ping(sql, url);
     await Push.list();
-    console.log(`[push-postgres] database host=${LivePostgres.describe(url).host} port=${LivePostgres.describe(url).port}`);
   });
 
   beforeEach(async () => {
