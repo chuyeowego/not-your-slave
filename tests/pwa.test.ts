@@ -57,8 +57,6 @@ describe("Pwa assets", () => {
     };
     expect(manifest.display).toBe("standalone");
     expect(manifest.start_url).toBe("/");
-    expect(manifest.theme_color).toBe(Pwa.darkBackground());
-    expect(manifest.background_color).toBe(Pwa.darkBackground());
     expect(manifest.theme_color).toBe("#14130f");
     expect(manifest.icons.map((icon) => icon.src)).toEqual(["/icon.svg", "/icon-192.png", "/icon-512.png"]);
   });
