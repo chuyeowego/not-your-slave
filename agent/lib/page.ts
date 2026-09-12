@@ -124,8 +124,8 @@ ${RENDERED}
     padding: 0 .28rem; line-height: 1.2; border: 0; background: var(--bg);
     color: var(--dim); font-size: .7rem; letter-spacing: 0;
   }
-  .msg .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
-  .msg .pic {
+  .msg .pics, .entry .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
+  .msg .pic, .entry .pic {
     max-width: 12rem; max-height: 9rem; object-fit: cover; display: block;
     border: 1px solid var(--rule); border-radius: 2px;
   }
@@ -246,7 +246,7 @@ function takeFiles(text) {
   return { caption, files };
 }
 
-function picStrip(blobs, names) {
+function picStrip(blobs, stored, names) {
   const strip = el("div", "pics");
   if (blobs && blobs.length) {
     for (const file of blobs) {
@@ -254,25 +254,38 @@ function picStrip(blobs, names) {
       img.className = "pic";
       img.alt = file.name || "attached image";
       img.src = URL.createObjectURL(file);
-      img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
       strip.append(img);
     }
     return strip;
   }
-  for (const name of names) strip.append(el("span", "pic-name", name));
-  return strip;
+  if (stored && stored.length) {
+    for (const image of stored) {
+      if (!image || typeof image.data !== "string") continue;
+      const img = document.createElement("img");
+      img.className = "pic";
+      img.alt = image.filename || "attached image";
+      img.src = image.data;
+      strip.append(img);
+    }
+    if (strip.childNodes.length) return strip;
+  }
+  for (const name of names || []) strip.append(el("span", "pic-name", name));
+  return strip.childNodes.length ? strip : null;
 }
 
-function bubble(cls, who, text, prepend, blobs) {
+function bubble(cls, who, text, prepend, blobs, images) {
   chat.querySelector(".empty")?.remove();
   const wrap = el("div", "msg " + cls);
   const parsed = takeFiles(text);
   wrap.append(el("span", "who", who));
-  if ((blobs && blobs.length) || parsed.files.length) {
-    wrap.append(picStrip(blobs, parsed.files));
-  }
+  const pics = picStrip(blobs, images, parsed.files);
+  if (pics) wrap.append(pics);
   const body = el("div", "body");
-  if (parsed.caption) setMessage(body, parsed.caption);
+  const caption =
+    ((blobs && blobs.length) || (images && images.length)) && parsed.caption === "(image)"
+      ? ""
+      : parsed.caption;
+  if (caption) setMessage(body, caption);
   wrap.append(body);
   place(wrap, prepend);
   return body;
@@ -309,7 +322,13 @@ async function refreshMindlog() {
 
     const when = el("div", "when");
     when.append(at, el("span", "kind", e.kind));
-    row.append(when, el("span", "text", e.text));
+    const body = el("span", "text");
+    const pics = picStrip(null, e.images, []);
+    if (pics) body.append(pics);
+    const parsed = takeFiles(e.text);
+    const caption = pics && parsed.caption === "(image)" ? "" : pics ? parsed.caption : e.text;
+    if (caption) body.append(caption);
+    row.append(when, body);
     return row;
   }));
   if (atBottom) mindlogEl.scrollTop = mindlogEl.scrollHeight;
@@ -711,7 +730,7 @@ let oldestShown = null;
 
 function paintEntry(entry, prepend) {
   if (entry.kind === "woke") wokeMarker(prepend);
-  else if (entry.kind === "heard") bubble("me", "you", entry.text, prepend);
+  else if (entry.kind === "heard") bubble("me", "you", entry.text, prepend, null, entry.images);
   else bubble("it", "it", entry.text, prepend);
 }
 

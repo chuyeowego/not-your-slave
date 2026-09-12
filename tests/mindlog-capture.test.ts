@@ -82,6 +82,23 @@ describe("mindlog capture hook", () => {
       kind: "heard",
       text: "look\n[file: shot.png (image/png)]",
     });
+    expect((await read())[0]?.images).toBeUndefined();
+  });
+
+  test("a data-URL image part is stored so the page can render it", async () => {
+    const data = "data:image/png;base64,iVBORw0KGgo=";
+    await fire("message.received", {
+      message: "(image)\n[file: shot.png (image/png)]",
+      parts: [
+        { type: "text", text: "(image)" },
+        { type: "file", filename: "shot.png", mediaType: "image/png", url: data },
+      ],
+    });
+    expect((await read())[0]).toMatchObject({
+      kind: "heard",
+      text: "(image)\n[file: shot.png (image/png)]",
+      images: [{ data, filename: "shot.png", mediaType: "image/png" }],
+    });
   });
 
   test("reasoning lands as thought", async () => {

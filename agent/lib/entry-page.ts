@@ -11,6 +11,16 @@ const time = (at: string): string => {
   return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 19)}`;
 };
 
+const pics = (entry: MindlogNeighbourhood["entry"]): string => {
+  if (!entry.images?.length) return "";
+  return `<div class="pics">${entry.images
+    .map(
+      (image) =>
+        `<img class="pic" alt="${escape(image.filename)}" src="${escape(image.data)}" />`,
+    )
+    .join("")}</div>`;
+};
+
 const entryRow = (entry: MindlogNeighbourhood["entry"], focus: boolean): string => `
     <article class="entry${focus ? " focus" : ""}" data-kind="${escape(entry.kind)}"${focus ? ' id="focus"' : ""}>
       <header>
@@ -21,6 +31,7 @@ const entryRow = (entry: MindlogNeighbourhood["entry"], focus: boolean): string 
         }
         <span class="kind">${escape(entry.kind)}</span>
       </header>
+      ${pics(entry)}
       <div class="body" data-text="${escape(entry.text)}"></div>
     </article>`;
 
@@ -67,6 +78,11 @@ ${RENDERED}
     display: flex; gap: .8rem; align-items: baseline;
     font-family: var(--mono); font-size: .62rem; letter-spacing: .1em;
     text-transform: uppercase; color: var(--dim); margin-bottom: .5rem;
+  }
+  .entry .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
+  .entry .pic {
+    max-width: 12rem; max-height: 9rem; object-fit: cover; display: block;
+    border: 1px solid var(--rule); border-radius: 2px;
   }
   .entry .body { font-size: .95rem; overflow-wrap: anywhere; }
   .entry .body code, .entry .body pre { background: var(--bg); }

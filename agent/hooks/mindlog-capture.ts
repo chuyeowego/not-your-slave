@@ -1,6 +1,6 @@
 import { defineHook } from "eve/hooks";
 
-import { append } from "../lib/mindlog";
+import { append, imagesFromParts } from "../lib/mindlog";
 import { Push } from "../lib/push";
 import { HEARTBEAT } from "../schedules/think";
 
@@ -15,12 +15,14 @@ export default defineHook({
       // continuation token cannot tell them apart. A cron dispatch still
       // reports kind "schedule"; the exact prompt text covers the manual wake
       // button, which sends the same constant. Image turns flatten to caption
-      // plus `[file: name (mediaType)]`, which is what we store.
+      // plus `[file: name (mediaType)]` in text; a data: URL on the part is
+      // kept in `images` so the page can show the picture.
       const woke = ctx.channel.kind === "schedule" || event.data.message.trim() === HEARTBEAT.trim();
       await append({
         kind: woke ? "woke" : "heard",
         text: woke ? "heartbeat" : event.data.message,
         sessionId: ctx.session.id,
+        ...(woke ? {} : { images: imagesFromParts(event.data.parts) }),
       });
     },
     async "reasoning.completed"(event, ctx) {
