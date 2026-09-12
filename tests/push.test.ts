@@ -63,10 +63,16 @@ describe("Push", () => {
   test("send without VAPID is a dry skip, not a protocol fake", async () => {
     const Push = await api();
     await Push.subscribe({ endpoint: "https://push.example/a", p256dh: "one", auth: "auth1" });
-    expect(await Push.send({ title: "t", body: "b", silentIfFocused: false })).toEqual({
+    expect(await Push.send({ title: "t", body: "b" })).toEqual({
       ok: true,
       skipped: "vapid",
     });
     expect(await Push.fanout("a finished reply")).toEqual({ ok: true, skipped: "vapid" });
+  });
+
+  test("the default VAPID subject is not a localhost contact Apple rejects", async () => {
+    const Push = await api();
+    delete process.env.VAPID_SUBJECT;
+    expect(Push.subject()).not.toMatch(/localhost/i);
   });
 });

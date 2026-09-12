@@ -14,7 +14,6 @@ export interface PushPayload {
   title: string;
   body: string;
   url?: string;
-  silentIfFocused?: boolean;
 }
 
 export type FanoutResult =
@@ -62,7 +61,7 @@ export class Push {
   }
 
   static subject(): string {
-    return process.env.VAPID_SUBJECT ?? "mailto:operator@localhost";
+    return process.env.VAPID_SUBJECT ?? "mailto:you@example.com";
   }
 
   static configured(): boolean {
@@ -143,7 +142,6 @@ export class Push {
       title: "it said something",
       body: Push.clip(text),
       url: "/",
-      silentIfFocused: true,
     });
   }
 
@@ -156,7 +154,6 @@ export class Push {
       title: payload.title,
       body: payload.body,
       url: payload.url ?? "/",
-      silentIfFocused: payload.silentIfFocused !== false,
     });
 
     const subscriptions = await Push.list();

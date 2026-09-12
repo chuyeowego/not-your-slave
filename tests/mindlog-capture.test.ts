@@ -33,7 +33,6 @@ describe("mindlog capture hook", () => {
       title: "it said something",
       body: "a finished reply",
       url: "/",
-      silentIfFocused: true,
     });
   });
 

@@ -675,7 +675,7 @@ async function enablePush() {
       return;
     }
     const test = await fetch("/api/push/test", { method: "POST" });
-    notifyBtn.textContent = test.ok ? "test push" : "on";
+    notifyBtn.textContent = test.ok ? "test push" : "failed";
   } catch {
     notifyBtn.textContent = "failed";
   } finally {
