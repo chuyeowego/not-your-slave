@@ -14,8 +14,6 @@ Click **Attach**, pick an image, optionally caption, **Send**, reload — the th
 
 ## Driving it with verify-nys
 
-**Requires image upload product** ([PR #25](https://github.com/chuyeowego/not-your-slave/pull/25)) — scenario fails against bare `main`.
-
 ```bash
 verify-nys drive photo-persist
 ```
@@ -25,12 +23,12 @@ Uses `lib/fixtures.mjs` `pngFixture()` written to the evidence dir (no binary in
 - Attaches via `DOM.setFileInputFiles` on `#files`.
 - Sends with caption; asserts `img.pic` before reload.
 - Asserts mindlog `heard.images[0].data` is inline base64.
-- Reloads; asserts `#mindlog img.pic` always; `#chat .msg.me img.pic` when AI credential present (else **blocked**).
+- Reloads; asserts `#mindlog img.pic`. Asserts `#chat .msg.me img.pic` when `/api/session` has an id after send (`restore()` from mindlog — not AI-gated).
 
 Proof: `before-reload.png`, `after-reload.png`, `result.json`, **`proof.html`**.
 
 ## Gotchas
 
-- Same `#chat` restore rule as text-persist — needs AI credential or check is blocked.
+- `#chat` user restore is `restore()` from `/api/mindlog` spoken rows once `/api/session` has an id. AI is not on that path — gate AI only for agent `said`/`thought`.
 - Blob URLs on first paint are not persistence proof — always assert `/api/mindlog` and post-reload DOM.
 - Images over 3 MiB degrade to path references — stay under `SAY.maxBytes`.

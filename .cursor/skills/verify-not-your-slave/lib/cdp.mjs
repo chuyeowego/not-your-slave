@@ -264,9 +264,7 @@ export async function withPage(
   ];
   if (useHeaded) {
     chromeArgs.push("--disable-infobars", "--window-position=80,80");
-    if (process.env.DISPLAY) {
-      // Headed runs need the VM X display.
-    } else {
+    if (!process.env.DISPLAY) {
       throw new Error("headed Chrome requires DISPLAY (VM desktop)");
     }
   } else {

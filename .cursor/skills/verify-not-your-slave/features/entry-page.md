@@ -15,15 +15,11 @@ Each mindlog timestamp links to `/entry/<key>` — a bookmarkable page showing o
 
 ## Driving it with verify-nys
 
-Preconditions:
+```bash
+verify-nys drive entry-page
+```
 
-- `verify-nys doctor` passes.
-- Known entry id (from `verify-nys seed-note` or mindlog API).
-
-- **Seed.** `id=$(verify-nys seed-note "entry bookmark test")`.
-- **Open page.** `curl -fsS "$BASE_URL/entry/$id"` → `200`, HTML contains `entry bookmark test`.
-- **Missing key.** `curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/entry/does-not-exist"` → `404`.
-- **Proof.** Save HTML: `curl -fsS "$BASE_URL/entry/$id" > evidence/entry-page/$RUN_ID/page.html` (or extend `capture`).
+Seeds a `note`, `GET /entry/:id` (200 + body text), 404 for a missing key. Writes `entry.html` under `evidence/entry-page/<run-id>/` plus **`proof.html`**.
 
 ## Gotchas
 
