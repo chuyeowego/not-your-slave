@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 
-import { read } from "../lib/mindlog";
+import { read, withoutImages } from "../lib/mindlog";
 
 export default defineTool({
   description:
@@ -10,6 +10,6 @@ export default defineTool({
     limit: z.number().int().min(1).max(200).default(40).describe("How many recent entries to read."),
   }),
   async execute({ limit }) {
-    return { entries: await read(limit) };
+    return { entries: (await read(limit)).map(withoutImages) };
   },
 });

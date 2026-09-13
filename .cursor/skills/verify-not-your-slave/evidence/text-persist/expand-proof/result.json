@@ -1,0 +1,23 @@
+{
+  "scenario": "text-persist",
+  "baseUrl": "http://127.0.0.1:2002",
+  "tier": "A",
+  "at": "2026-09-13T05:47:53.401Z",
+  "checks": [
+    {
+      "label": "mindlog pane shows text after reload (tier A+)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "tier A: conversation-log reload deferred",
+      "passed": true,
+      "detail": "add AI_GATEWAY_API_KEY to .env.local for #chat restore after reload"
+    },
+    {
+      "label": "heard entry persists in /api/mindlog",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}
