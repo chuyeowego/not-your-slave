@@ -2,7 +2,7 @@
 // tooling, and Node 24 has a global WebSocket, so a driver is cheaper than a
 // Playwright dependency the app itself never needs.
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,6 +15,58 @@ const CHROME_CANDIDATES = [
 ].filter((value) => typeof value === "string" && value.length > 0);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Headed Chrome on the VM desktop (push-notify and VERIFY_NYS_HEADED=1). */
+export function headedMode(explicit) {
+  if (explicit !== undefined) return Boolean(explicit);
+  const raw = process.env.VERIFY_NYS_HEADED ?? "";
+  return raw === "1" || raw.toLowerCase() === "true";
+}
+
+async function seedNotificationAllow(profile, origin) {
+  const defaultDir = join(profile, "Default");
+  await mkdir(defaultDir, { recursive: true });
+  const key = `${origin},*`;
+  const prefs = {
+    profile: {
+      default_content_setting_values: { notifications: 1 },
+      content_settings: {
+        exceptions: {
+          notifications: {
+            [key]: { setting: 1 },
+          },
+        },
+      },
+    },
+  };
+  await writeFile(join(defaultDir, "Preferences"), `${JSON.stringify(prefs)}\n`);
+}
+
+async function connectSession(url, timeoutMs = 20000) {
+  const ws = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    ws.addEventListener("open", resolve, { once: true });
+    ws.addEventListener("error", () => reject(new Error(`CDP websocket failed for ${url}`)), { once: true });
+  });
+  return new Session(ws);
+}
+
+async function grantNotificationsOnBrowser(port, origin) {
+  try {
+    const version = await waitForJson(`http://127.0.0.1:${port}/json/version`, 10000);
+    const browser = await connectSession(version.webSocketDebuggerUrl);
+    try {
+      await browser.send("Browser.grantPermissions", {
+        origin,
+        permissions: ["notifications"],
+      });
+    } finally {
+      browser.close();
+    }
+  } catch {
+    // Headless page sessions may not expose Browser.*; headed runs still try profile prefs.
+  }
+}
 
 async function pickPort() {
   const { createServer } = await import("node:net");
@@ -112,14 +164,25 @@ export class Page {
 
   /** Polls `expression` until it is truthy. Returns its final value. */
   async waitFor(expression, { timeoutMs = 15000, intervalMs = 150, label = expression } = {}) {
+    const waited = await this.waitForOptional(expression, { timeoutMs, intervalMs, label });
+    if (waited.ok) return waited.value;
+    throw new Error(waited.detail);
+  }
+
+  /** Like waitFor but returns { ok, value, detail } instead of throwing. */
+  async waitForOptional(expression, { timeoutMs = 15000, intervalMs = 150, label = expression } = {}) {
     const deadline = Date.now() + timeoutMs;
     let last;
     while (Date.now() < deadline) {
       last = await this.evaluate(expression);
-      if (last) return last;
+      if (last) return { ok: true, value: last };
       await sleep(intervalMs);
     }
-    throw new Error(`waitFor timed out after ${timeoutMs}ms: ${label} (last value ${JSON.stringify(last)})`);
+    return {
+      ok: false,
+      value: last,
+      detail: `waitFor timed out after ${timeoutMs}ms: ${label} (last value ${JSON.stringify(last)})`,
+    };
   }
 
   /** Attaches real files to an `<input type=file>`, the way a file picker does. */
@@ -128,6 +191,22 @@ export class Page {
     const { nodeId } = await this.session.send("DOM.querySelector", { nodeId: root.nodeId, selector });
     if (nodeId === 0) throw new Error(`no element matched ${selector}`);
     await this.session.send("DOM.setFileInputFiles", { nodeId, files });
+  }
+
+  async grantNotifications(origin) {
+    await grantNotificationsOnBrowser(this.debugPort, origin);
+  }
+
+  async click(selector) {
+    const { root } = await this.session.send("DOM.getDocument", { depth: 1 });
+    const { nodeId } = await this.session.send("DOM.querySelector", { nodeId: root.nodeId, selector });
+    if (nodeId === 0) throw new Error(`no element matched ${selector}`);
+    const box = await this.session.send("DOM.getBoxModel", { nodeId });
+    const content = box.model.content;
+    const x = (content[0] + content[4]) / 2;
+    const y = (content[1] + content[5]) / 2;
+    await this.session.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+    await this.session.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
   }
 
   async screenshot(path, { fullPage = false } = {}) {
@@ -157,31 +236,49 @@ export class Page {
 }
 
 /**
- * Launches headless Chrome on a throwaway profile, hands `fn` a Page, and
- * always tears the browser and profile down.
+ * Launches Chrome on a throwaway profile, hands `fn` a Page, and always tears
+ * the browser and profile down. Pass `{ headed: true }` or set VERIFY_NYS_HEADED=1
+ * for the VM desktop (push-notify).
  */
-export async function withPage(fn, { viewport = { width: 1440, height: 900 } } = {}) {
+export async function withPage(
+  fn,
+  { viewport = { width: 1440, height: 900 }, headed, notificationOrigin } = {},
+) {
+  const useHeaded = headedMode(headed);
   const port = await pickPort();
   const profile = await mkdtemp(join(tmpdir(), "nys-verify-chrome-"));
+  if (useHeaded && notificationOrigin) {
+    await seedNotificationAllow(profile, notificationOrigin);
+  }
   let chrome;
   let lastSpawnError;
+
+  const chromeArgs = [
+    `--remote-debugging-port=${port}`,
+    `--user-data-dir=${profile}`,
+    `--window-size=${viewport.width},${viewport.height}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--no-sandbox",
+    "about:blank",
+  ];
+  if (useHeaded) {
+    chromeArgs.push("--disable-infobars", "--window-position=80,80");
+    if (process.env.DISPLAY) {
+      // Headed runs need the VM X display.
+    } else {
+      throw new Error("headed Chrome requires DISPLAY (VM desktop)");
+    }
+  } else {
+    chromeArgs.push("--headless=new", "--disable-gpu");
+  }
 
   for (const binary of CHROME_CANDIDATES) {
     try {
       chrome = spawn(
         binary,
-        [
-          "--headless=new",
-          `--remote-debugging-port=${port}`,
-          `--user-data-dir=${profile}`,
-          `--window-size=${viewport.width},${viewport.height}`,
-          "--no-first-run",
-          "--no-default-browser-check",
-          "--disable-gpu",
-          "--no-sandbox",
-          "about:blank",
-        ],
-        { stdio: "ignore" },
+        chromeArgs,
+        { stdio: "ignore", env: { ...process.env } },
       );
       await new Promise((resolve, reject) => {
         chrome.once("spawn", resolve);
@@ -228,6 +325,7 @@ export async function withPage(fn, { viewport = { width: 1440, height: 900 } } =
     await session.send("DOM.enable");
 
     const page = new Page(session, consoleLog);
+    page.debugPort = port;
     try {
       return await fn(page);
     } finally {

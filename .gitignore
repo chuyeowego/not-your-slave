@@ -10,3 +10,9 @@
 *.tsbuildinfo
 dist
 node_modules
+
+# Verification skill — local only (see evidence/README.md)
+.cursor/skills/verify-not-your-slave/.run/
+.cursor/skills/verify-not-your-slave/evidence/**
+!.cursor/skills/verify-not-your-slave/evidence/.gitkeep
+!.cursor/skills/verify-not-your-slave/evidence/README.md
