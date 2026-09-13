@@ -264,18 +264,17 @@ export async function append(entry: Omit&lt;MindlogEntry, "at"&gt;): Promise&lt;
   await appendFile(FILE, `${line}\n`, "utf8");
 }</pre>
 
-<p>Four decisions in twelve lines, and each one is a rule that no caller can break, because there is exactly one way into the file.</p>
+<p>Four decisions in twelve lines.</p>
 
 <ul>
   <li><strong>The timestamp is stamped here</strong>, not passed in. Callers cannot lie about when something happened, and there is no clock parameter to forget.</li>
   <li><strong>Blank entries are dropped.</strong> Streaming events produce empty strings surprisingly often; if the filter lived in the callers, one of them would miss it.</li>
-  <li><strong>Long text is truncated once</strong>, at 4,000 characters, with an ellipsis so a reader can see it happened. The model's reasoning blocks can run long, and a log is not an archive of everything ever generated.</li>
   <li><strong>The directory is created on demand</strong>, so a fresh clone with no <code>.data/</code> works with no setup step.</li>
 </ul>
 
 <div class="callout">
   <span class="label">Key concept: one writer, one shape</span>
-  <p>Putting validation in the writer rather than in each caller is the difference between a file you can trust and a file you have to defend against. Later commits add three more callers - a hook with four event handlers, a heartbeat, and a sync - and none of them can produce a malformed line.</p>
+  <p>Putting validation in the writer rather than in each caller is the difference between a file you can trust and a file you have to defend against.</p>
 </div>
 
 <pre>export async function read(limit = 50): Promise&lt;MindlogEntry[]&gt; {
@@ -300,11 +299,6 @@ export async function append(entry: Omit&lt;MindlogEntry, "at"&gt;): Promise&lt;
 }</pre>
 
 <p>Two swallowed errors, both deliberate, both commented. A missing file is not an error: it is a new agent, and it reads as an empty history. A line that will not parse is skipped rather than thrown, because a reader can arrive while an append is half-written - and the correct behaviour for a memory is to keep remembering the other 99 lines.</p>
-
-<p>The ceiling is marked in the source rather than hidden:</p>
-
-<pre>// ponytail: reads the whole file to return the tail. Switch to a reverse
-// chunked read (or a real store) when the mindlog outgrows a few MB.</pre>
 
 <h3>Two doors for the model</h3>
 
@@ -342,8 +336,6 @@ assert.deepEqual(await read(), [], "a missing file reads as empty, not an error"
 assert.equal(all.length, 2, "blank entries are dropped");
 assert.equal((await read(1))[0].text, "Second Thing about BUSYWORK", "the tail is the newest");</pre>
 
-<p>Run with <code>npm run check</code>, which is <code>node --experimental-strip-types agent/lib/mindlog.check.ts</code>. Node 24 strips the types and runs the file directly, so a real assertion suite arrives with no test framework and no new dependency. The <code>MINDLOG_FILE</code> environment variable, which exists so the check can point at a temp directory, later turns out to be what makes it possible to run a throwaway production server without polluting the real log.</p>
-
 <div class="callout aside">
   <span class="label">Design note: the import extension</span>
   <p>Node's type stripping needs the <code>.ts</code> extension on the import, which <code>tsc</code> rejects by default. One line in <code>tsconfig.json</code> - <code>allowImportingTsExtensions</code> - reconciles them, legal here because the project already compiles with <code>noEmit</code>.</p>
@@ -362,9 +354,9 @@ assert.equal((await read(1))[0].text, "Second Thing about BUSYWORK", "the tail i
     <div class="fb"></div>
   </div>
 
-  <div class="q" data-answer="b" data-explain="append() is the single writer, so stamping the time, dropping blanks, and truncating there makes those rules unbreakable by any caller. Three more callers arrive in later commits and none can write a malformed line.">
+  <div class="q" data-answer="b" data-explain="append() is the single writer, so stamping the time and dropping blanks there makes those rules unbreakable by any caller.">
     <span class="n">Question 2</span>
-    <p class="ask">Why stamp the timestamp and enforce truncation inside <code>append()</code> rather than at the call sites?</p>
+    <p class="ask">Why stamp the timestamp inside <code>append()</code> rather than at the call sites?</p>
     <button class="opt" data-key="a">Because <code>appendFile</code> cannot accept a pre-built string.</button>
     <button class="opt" data-key="b">Because it is the only writer, so rules enforced there hold for every present and future caller.</button>
     <button class="opt" data-key="c">Because JSON.stringify reorders keys unless the timestamp is added first.</button>
