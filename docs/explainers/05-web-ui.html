@@ -159,6 +159,11 @@ th { font-family: "JetBrains Mono", monospace; font-size: .66rem; letter-spacing
   <a href="https://github.com/chuyeowego/not-your-slave">chuyeowego/not-your-slave</a>
 </p>
 
+<div class="callout aside">
+  <span class="label">After these six commits</span>
+  <p>This page walks commit <code>5d117e6</code>. The running tree is one shared TIMELINE address on the home channel; heartbeat is a handler that <code>to(home, {}).send</code>s onto that timeline. Chat and cron share the session — not <code>/eve/v1/session</code> chat, <code>from("heartbeat")</code>, or a new cron session each fire.</p>
+</div>
+
 <nav class="toc">
   <div class="kicker">On this page</div>
   <ol>
@@ -220,14 +225,14 @@ GET /eve/v1/session/:id/stream?startIndex=12&amp;includeTailIndex=1   # catch up
     <div class="stack">
       <div class="node hi">
         <span class="t">attempt 2: one long-lived reader</span>
-        <span class="s">on load, replay from index 0 to restore history, then follow from the tail forever. Sending a message adds nothing to the read path.</span>
+        <span class="s">this commit: on load, replay from index 0 to restore history, then follow from the tail forever. Sending a message adds nothing to the read path.</span>
       </div>
     </div>
   </div>
-  <figcaption>The client stores no transcript at all. There is only one source of truth, so there is nothing to drift.</figcaption>
+  <figcaption>This commit: the client stores no transcript at all. There is only one source of truth, so there is nothing to drift.</figcaption>
 </figure>
 
-<p>Concretely, with a session that already has a two-turn history:</p>
+<p>Concretely, this commit, with a session that already has a two-turn history:</p>
 
 <div class="tl">
   <div class="row"><span class="when">load</span><span><code>?startIndex=0&amp;includeTailIndex=1</code> replays four events. Four bubbles painted. The response ends by itself.</span></div>
@@ -280,11 +285,11 @@ GET /eve/v1/session/:id/stream?startIndex=12&amp;includeTailIndex=1   # catch up
   ],
 });</pre>
 
-<p>Chat is conspicuously absent: the page talks to eve's own <code>/eve/v1/session</code> API for that, so the channel only supplies what eve does not already have. Three things to notice.</p>
+<p>In this commit, chat was conspicuously absent: the page talked to eve's own <code>/eve/v1/session</code> API for that, so the channel only supplied what eve did not already have. Three things to notice.</p>
 
 <ul>
   <li><strong><code>/api/think</code> sends the exported <code>HEARTBEAT</code></strong> from commit 4. The button is not a simulation of a wake-up, it is the same text cron sends - which is what makes it a usable stand-in during development, where cron never fires.</li>
-  <li><strong><code>from("heartbeat")</code> is a channel-local address</strong>, not a session id. Whichever session currently owns that address gets the message, and one is created if none does. A consequence worth knowing: repeated button presses reuse a single long-lived heartbeat session, whereas cron creates a new one each fire. Same prompt, different continuity, which commit 6 has to reckon with.</li>
+  <li><strong>This commit's <code>from("heartbeat")</code> was a channel-local address</strong>, not a session id. Repeated button presses reused that heartbeat session; cron minted a new one each fire. Same prompt, different continuity — the gap commit 6 had to reckon with. The running tree sends both onto <code>TIMELINE</code>.</li>
   <li><strong>The page is a string</strong> in <code>agent/lib/page.ts</code> (a <code>String.raw</code> template) rather than a file read at runtime. It gets bundled with the agent and needs no path resolution in production. The cost is that a literal backtick inside the template ends it - a mistake made and fixed while adding the markdown renderer, resolved by writing backticks as <code>`</code>.</li>
 </ul>
 
@@ -304,7 +309,7 @@ GET /eve/v1/session/:id/stream?startIndex=12&amp;includeTailIndex=1   # catch up
   }
 }</pre>
 
-<p>An NDJSON reader with a reconnect loop. Two details do real work: the loop condition ties the reader's life to the session it was started for, so switching sessions retires the old reader; and the reconnect sets <code>startIndex = -1</code>, because a dropped connection must resume at the tail rather than replay the conversation.</p>
+<p>An NDJSON reader with a reconnect loop. In this commit, two details did real work: the loop condition tied the reader's life to the session it was started for, so switching sessions retired the old reader; and the reconnect set <code>startIndex = -1</code>, because a dropped connection had to resume at the tail rather than replay the conversation.</p>
 
 <pre>function handle(event) {
   switch (event.type) {
@@ -339,7 +344,7 @@ GET /eve/v1/session/:id/stream?startIndex=12&amp;includeTailIndex=1   # catch up
   void follow(id, -1);                        // then go live
 }</pre>
 
-<p><code>includeTailIndex=1</code> asks for a catch-up read that ends rather than following, so this loop terminates on its own and hands over to <code>follow</code>. The whole of "chat history across refreshes" is these fifteen lines, and the reason it is that small is that the transcript was never the client's job.</p>
+<p>In this commit, <code>includeTailIndex=1</code> asked for a catch-up read that ended rather than following, so this loop terminated on its own and handed over to <code>follow</code>. The whole of "chat history across refreshes" was these fifteen lines. The running tree restores spoken history from the mindlog and attaches the stream at the tail.</p>
 
 <h3>Rendering markdown without letting it become markup</h3>
 
