@@ -1,43 +1,40 @@
-# Feature map — not-your-slave
+# not-your-slave verification map
 
-What a person can actually do with this app, and what proves each one works.
-This is the maintained source for verification: a proof that drives only the
-convenient entry point is incomplete when a feature file lists others.
+Read this index before driving. Each feature file is the recipe for one user-facing path.
 
-The app is one page (chat left, mindlog right) backed by one durable eve
-session. Everything below is reachable from `http://127.0.0.1:<port>/`.
+## Baseline preconditions
 
-| Feature | File | Scenario | Needs a model credential |
-| --- | --- | --- | --- |
-| Say something and get a reply | [conversation.md](conversation.md) | — | yes, for the reply |
-| Attach a photo | [photo-upload.md](photo-upload.md) | `send-photo`, `say-limits` | no, up to the model call |
-| The mindlog pane and permalinks | [mindlog.md](mindlog.md) | `send-photo` (pane only) | no |
-| Wake it by hand | [heartbeat.md](heartbeat.md) | — | yes, to produce a `woke` reply |
-| Install and notify | [install-and-push.md](install-and-push.md) | — | no (needs VAPID keys) |
+- Node.js **>= 24**.
+- `$H launch` with isolated `MINDLOG_FILE` / `PUSH_FILE` under `.run/<run-id>/`.
+- `$H doctor` passes before any `drive` command.
+- `.env.local` or `.env` at repo root for AI and VAPID credentials (see skill SKILL.md).
 
-## Tiers
+## Credentials (not letter tiers)
 
-`bin/doctor.sh` prints which tier the running instance can prove.
+| Credential | Env vars | Required for |
+| --- | --- | --- |
+| AI gateway | `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Live `said`/`thought`, `#chat` restore after reload |
+| VAPID | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` | `push-notify` (headed Chrome) |
 
-- **Tier A — no `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN`.** Everything up to
-  the model call: the page, the composer, `POST /api/say` and its limits, the
-  `heard` mindlog entry with image bytes, the mindlog pane, the error bubble.
-  The turn ends with `[AI Gateway received no credentials.]` in the window, and
-  that is a pass for tier A, not a failure.
-- **Tier B — credential present.** Adds the agent's reply: `thought`, `said`
-  and `did` entries, streaming into the chat pane, and whether the model
-  actually looked at an attached photo instead of trying to parse it.
+Each check is **passed**, **failed**, or **blocked** (`need <env var>`). Canonical wording: SKILL.md **Doctor** and `proof.html` credentials box.
 
-## Coverage gaps worth knowing
+## Driving conventions
 
-- **Chat history after reload** is restored only when `GET /api/session`
-  resolves a session (`agent/lib/page.ts`, `ensureSession`). A tier-A turn dies
-  before the session becomes resolvable, so the chat pane is empty on reload
-  while the mindlog pane still shows the photo. Verify restore at tier B.
-- **Paste and drag-drop** attachment paths are not scripted yet; only the file
-  picker is. They share `addFiles()` in `agent/lib/page.ts`, but sharing code is
-  not evidence.
-- **The sandbox is stubbed** by default (`--sandbox just-bash`), so anything
-  about the agent running real commands in `/workspace` is out of scope for
-  this harness. Relaunch with `--sandbox real` on a machine with Docker or
-  working KVM to cover it.
+- Browser: `verify-nys drive <scenario>` (uses `lib/cdp.mjs`).
+- HTTP: `verify-nys api` or `curl` against `$BASE_URL` from state.
+- Assert mindlog side effects, not DOM alone. Photos: `entries[].images[0].data` starts with `data:image/`.
+- Evidence is **local only** (gitignored). Each drive writes **`proof.html`** + `result.json` under `evidence/<scenario>/<run-id>/`. Rollup: **`evidence/_runs/<run-id>/proof.html`**. See [`evidence/README.md`](../evidence/README.md).
+- **`send-photo`**, **`photo-persist`**, **`say-limits`** need image upload on the branch ([PR #25](https://github.com/chuyeowego/not-your-slave/pull/25)); scenarios stay in this skill but fail against `main` until that product lands.
+
+## Features
+
+- [Conversation log](./conversation-log.md) — left pane shows user/agent messages from mindlog.
+- [Text persists](./text-persist.md) — send text, reload, message still in the log.
+- [Photo persists](./photo-persist.md) — attach photo, send, reload, image still in the log.
+- [Attach a photo](./photo-upload.md) — composer attach, mindlog `heard` with bytes (no reload).
+- [Wake it](./wake-it.md) — manual heartbeat button + `/api/think`.
+- [Push notifications](./push-notifications.md) — Notify button, subscribe, test delivery.
+- [Mindlog panel](./mindlog-panel.md) — right pane append-only log.
+- [Chat](./chat.md) — send + stream reply (needs AI credential).
+- [Entry page](./entry-page.md) — `/entry/:key` permalinks.
+- [PWA install assets](./pwa-install.md) — public manifest, icons, service worker.
