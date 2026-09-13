@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { capOutputTokens, IMAGE_TURN_REMINDER, promptForVision, promptHasImage } from "#agent.ts";
+import { capOutputTokens } from "#agent.ts";
+import { SAY } from "#lib/say.ts";
 
 const transform = (prompt: unknown, extra?: Record<string, unknown>) =>
   capOutputTokens.transformParams!({
@@ -9,102 +10,25 @@ const transform = (prompt: unknown, extra?: Record<string, unknown>) =>
     params: { prompt, maxOutputTokens: 8000, ...extra } as never,
   });
 
-describe("promptHasImage", () => {
-  test("is false for text-only turns", () => {
-    expect(promptHasImage([{ role: "user", content: [{ type: "text", text: "hi" }] }])).toBe(false);
-    expect(promptHasImage("hello")).toBe(false);
-  });
-
-  test("is true for image file parts and legacy image parts", () => {
-    expect(
-      promptHasImage([
-        { role: "user", content: [{ type: "file", mediaType: "image/png", data: "abc" }] },
-      ]),
-    ).toBe(true);
-    expect(promptHasImage([{ role: "user", content: [{ type: "image", image: "abc" }] }])).toBe(true);
-    expect(
-      promptHasImage([
-        { role: "user", content: [{ type: "file", mediaType: "application/pdf", data: "abc" }] },
-      ]),
-    ).toBe(false);
-  });
-});
-
-describe("promptForVision", () => {
-  test("leaves text-only prompts alone", () => {
-    const prompt = [{ role: "user", content: [{ type: "text", text: "hi" }] }];
-    expect(promptForVision(prompt)).toBe(prompt);
-  });
-
-  test("replaces the caption-less stub and strips sandbox attachment paths", () => {
-    expect(
-      promptForVision([
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "(image)" },
-            {
-              type: "file",
-              data: "abc",
-              filename: "/workspace/attachments/deadbeef/account.png",
-              mediaType: "image/png",
-            },
-          ],
-        },
-      ]),
-    ).toEqual([
-      {
-        role: "user",
-        content: [
-          { type: "text", text: IMAGE_TURN_REMINDER },
-          { type: "file", data: "abc", mediaType: "image/png" },
-        ],
-      },
-    ]);
-  });
-
-  test("prepends the reminder when they already wrote a caption", () => {
-    expect(
-      promptForVision([
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "what is this account" },
-            { type: "file", data: "abc", filename: "shot.png", mediaType: "image/jpeg" },
-          ],
-        },
-      ]),
-    ).toEqual([
-      {
-        role: "user",
-        content: [
-          { type: "text", text: IMAGE_TURN_REMINDER },
-          { type: "text", text: "what is this account" },
-          { type: "file", data: "abc", filename: "shot.png", mediaType: "image/jpeg" },
-        ],
-      },
-    ]);
-  });
-
-  test("does not stack the reminder on a later generate", () => {
-    const once = promptForVision([
-      {
-        role: "user",
-        content: [
-          { type: "text", text: IMAGE_TURN_REMINDER },
-          { type: "file", data: "abc", mediaType: "image/png" },
-        ],
-      },
-    ]);
-    expect(promptForVision(once)).toEqual(once);
-  });
-});
+const firstText = (prompt: unknown): string => {
+  const part = (prompt as { content: { text?: unknown; type?: unknown }[] }[])[0]?.content.find(
+    (item) => item.type === "text",
+  );
+  if (typeof part?.text !== "string") throw new Error("expected a text part");
+  return part.text;
+};
 
 describe("capOutputTokens", () => {
   test("caps output and leaves text-only routing alone", async () => {
-    const next = await transform([{ role: "user", content: [{ type: "text", text: "hi" }] }]);
+    const prompt = [{ role: "user", content: [{ type: "text", text: "hi" }] }];
+    const next = await transform(prompt);
     expect(next.maxOutputTokens).toBe(4096);
     expect(next.providerOptions).toBeUndefined();
+    expect(next.prompt).toBe(prompt);
+
+    const stringPrompt = await transform("hello");
+    expect(stringPrompt.providerOptions).toBeUndefined();
+    expect(stringPrompt.prompt).toBe("hello");
   });
 
   test("asks the gateway for a vision route when the prompt has an image", async () => {
@@ -113,7 +37,7 @@ describe("capOutputTokens", () => {
         {
           role: "user",
           content: [
-            { type: "text", text: "(image)" },
+            { type: "text", text: SAY.untitled },
             {
               type: "file",
               data: "abc",
@@ -127,14 +51,57 @@ describe("capOutputTokens", () => {
     );
     expect(next.maxOutputTokens).toBe(4096);
     expect(next.providerOptions).toEqual({ gateway: { tags: ["home"], has: ["vision"] } });
+    expect(firstText(next.prompt)).not.toBe(SAY.untitled);
+    expect(firstText(next.prompt)).toContain("already see this photograph");
     expect(next.prompt).toEqual([
       {
         role: "user",
         content: [
-          { type: "text", text: IMAGE_TURN_REMINDER },
+          { type: "text", text: firstText(next.prompt) },
           { type: "file", data: "abc", mediaType: "image/jpeg" },
         ],
       },
     ]);
+  });
+
+  test("treats legacy image parts as vision and ignores non-image files", async () => {
+    const image = await transform([{ role: "user", content: [{ type: "image", image: "abc" }] }]);
+    expect(image.providerOptions).toEqual({ gateway: { has: ["vision"] } });
+
+    const pdf = await transform([
+      { role: "user", content: [{ type: "file", mediaType: "application/pdf", data: "abc" }] },
+    ]);
+    expect(pdf.providerOptions).toBeUndefined();
+  });
+
+  test("prepends a vision cue when they already wrote a caption", async () => {
+    const next = await transform([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "what is this account" },
+          { type: "file", data: "abc", filename: "shot.png", mediaType: "image/jpeg" },
+        ],
+      },
+    ]);
+    expect((next.prompt as { content: unknown[] }[])[0]?.content).toEqual([
+      { type: "text", text: firstText(next.prompt) },
+      { type: "text", text: "what is this account" },
+      { type: "file", data: "abc", filename: "shot.png", mediaType: "image/jpeg" },
+    ]);
+  });
+
+  test("does not stack the vision cue on a later generate", async () => {
+    const once = await transform([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: SAY.untitled },
+          { type: "file", data: "abc", mediaType: "image/png" },
+        ],
+      },
+    ]);
+    const again = await transform(once.prompt);
+    expect(again.prompt).toEqual(once.prompt);
   });
 });

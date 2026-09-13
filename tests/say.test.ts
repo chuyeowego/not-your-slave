@@ -39,7 +39,7 @@ describe("parseSay", () => {
     expect(parsed.value.images[0]).toMatchObject({ filename: "a.png", mediaType: "image/png" });
     expect(parsed.value.images[0]?.bytes).toEqual(png);
     expect(toUserContent(parsed.value)).toEqual([
-      { type: "text", text: "(image)" },
+      { type: "text", text: SAY.untitled },
       {
         type: "file",
         data: `data:image/png;base64,${Buffer.from(png).toString("base64")}`,
@@ -85,5 +85,11 @@ describe("parseSay", () => {
         body: JSON.stringify({ images: "nope" }),
       }),
     ).toEqual({ ok: false, error: "images must be an array" });
+  });
+
+  test("ignores a singular image form field", async () => {
+    const form = new FormData();
+    form.append("image", new File([png], "a.png", { type: "image/png" }));
+    expect(await say({ body: form })).toEqual({ ok: false, error: "message required" });
   });
 });

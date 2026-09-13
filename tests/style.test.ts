@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { FONTS, TOKENS } from "#lib/style.ts";
+import { FONTS, RENDERED, TOKENS } from "#lib/style.ts";
 
 describe("style tokens", () => {
   test("defines the shared palette once, including both schemes", () => {
@@ -17,5 +17,10 @@ describe("style tokens", () => {
     expect(FONTS).toContain("Newsreader");
     expect(FONTS).toContain("JetBrains+Mono");
     expect(FONTS).toContain("fonts.googleapis.com");
+  });
+
+  test("keeps pic layout in the shared sheet", () => {
+    expect(RENDERED).toContain(".msg .pics, .entry .pics");
+    expect(RENDERED).toContain(".msg .pic, .entry .pic");
   });
 });

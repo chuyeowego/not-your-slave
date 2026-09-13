@@ -55,6 +55,7 @@ describe("entryPage", () => {
     );
     expect(withImage).toContain('src="data:image/png;base64,abc"');
     expect(withImage).toContain('alt="shot.png"');
+    expect(withImage.split(".msg .pics, .entry .pics")).toHaveLength(2);
   });
 
   test("inlined scripts parse as JavaScript", () => {
