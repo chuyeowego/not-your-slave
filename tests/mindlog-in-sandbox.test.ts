@@ -15,6 +15,11 @@ describe("mindlog-in-sandbox hook", () => {
 
   test("copies recent entries on turn.started and stops a completed sandbox", async () => {
     await store.api.append({ kind: "note", text: "remembered" });
+    await store.api.append({
+      kind: "heard",
+      text: "(image)",
+      images: [{ data: "data:image/png;base64,abc", filename: "shot.png", mediaType: "image/png" }],
+    });
     const hook = (await import("#hooks/mindlog-in-sandbox.ts")).default;
     const writeTextFile = vi.fn();
     const stop = vi.fn();
@@ -26,6 +31,7 @@ describe("mindlog-in-sandbox hook", () => {
     expect(writeTextFile).toHaveBeenCalledTimes(1);
     expect(writeTextFile.mock.calls[0][0].path).toBe("/workspace/mindlog.jsonl");
     expect(writeTextFile.mock.calls[0][0].content).toContain("remembered");
+    expect(writeTextFile.mock.calls[0][0].content).not.toContain("data:image");
 
     writeTextFile.mockClear();
     await hook.events?.["turn.started"]?.({ type: "turn.started", data: {} } as never, ctx as never);

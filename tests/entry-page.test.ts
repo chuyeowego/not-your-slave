@@ -40,6 +40,23 @@ describe("entryPage", () => {
     expect(html).not.toMatch(/<a class="at" href="\/entry\/0123456789ab">/);
   });
 
+  test("renders stored images next to the entry body", () => {
+    const withImage = entryPage(
+      {
+        ...place,
+        entry: {
+          ...sample,
+          kind: "heard",
+          text: "(image)",
+          images: [{ data: "data:image/png;base64,abc", filename: "shot.png", mediaType: "image/png" }],
+        },
+      },
+      "http://local",
+    );
+    expect(withImage).toContain('src="data:image/png;base64,abc"');
+    expect(withImage).toContain('alt="shot.png"');
+  });
+
   test("inlined scripts parse as JavaScript", () => {
     const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
     expect(blocks.length).toBeGreaterThan(0);

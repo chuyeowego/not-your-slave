@@ -33,6 +33,7 @@
   "devDependencies": {
     "@types/node": "24.x",
     "@types/web-push": "^3.6.4",
+    "just-bash": "^3.4.2",
     "typescript": "7.0.2",
     "vitest": "^4.1.11"
   },

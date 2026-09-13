@@ -74,4 +74,18 @@ describe("mindlog tools", () => {
     expect(found.count).toBe(2);
     expect(found.matches.map((entry) => entry.text)).toEqual(["alpha", "ALPHA again"]);
   });
+
+  test("mindlog_read omits stored image bytes", async () => {
+    const tool = (await import("#tools/mindlog_read.ts")).default;
+    await append({
+      kind: "heard",
+      text: "(image)",
+      images: [{ data: "data:image/png;base64,abc", filename: "shot.png", mediaType: "image/png" }],
+    });
+    const { entries } = (await tool.execute({ limit: 10 }, ToolSession.ctx("ses_tool"))) as {
+      entries: MindlogEntry[];
+    };
+    expect(entries[0]?.text).toBe("(image)");
+    expect(entries[0]?.images).toBeUndefined();
+  });
 });

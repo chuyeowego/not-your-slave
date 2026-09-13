@@ -102,6 +102,105 @@ describe("home channel routes", () => {
     expect(send).toHaveBeenCalledWith("hello", { auth: null });
   });
 
+  test("POST /api/say accepts multipart images and JSON image parts", async () => {
+    const send = vi.fn().mockResolvedValue({ id: "ses_img" });
+    const home = await channel();
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const form = new FormData();
+    form.set("message", "look");
+    form.append("images", new File([bytes], "shot.png", { type: "image/png" }));
+
+    const multipart = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", { method: "POST", body: form }),
+      HomeRoutes.args({ from: (() => ({ send })) as never }),
+    );
+    expect(await multipart.json()).toEqual({ ok: true, sessionId: "ses_img" });
+    const sent = send.mock.calls[0]?.[0] as Array<{
+      data?: string;
+      filename?: string;
+      mediaType?: string;
+      text?: string;
+      type: string;
+    }>;
+    expect(sent[0]).toEqual({ type: "text", text: "look" });
+    expect(sent[1]).toEqual({
+      type: "file",
+      data: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
+      filename: "shot.png",
+      mediaType: "image/png",
+    });
+
+    send.mockClear();
+    const json = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          images: [{ data: Buffer.from(bytes).toString("base64"), filename: "x.webp", mediaType: "image/webp" }],
+        }),
+      }),
+      HomeRoutes.args({ from: (() => ({ send })) as never }),
+    );
+    expect(json.status).toBe(200);
+    const onlyFile = send.mock.calls[0]?.[0] as Array<{ data?: string; filename?: string; text?: string; type: string }>;
+    expect(onlyFile).toEqual([
+      { type: "text", text: "(image)" },
+      expect.objectContaining({
+        type: "file",
+        filename: "x.webp",
+        data: `data:image/webp;base64,${Buffer.from(bytes).toString("base64")}`,
+      }),
+    ]);
+  });
+
+  test("POST /api/say returns 500 JSON when send throws", async () => {
+    const send = vi.fn().mockRejectedValue(new Error("queue down"));
+    const home = await channel();
+    const res = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: "hello" }),
+      }),
+      HomeRoutes.args({ from: (() => ({ send })) as never }),
+    );
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: "queue down" });
+  });
+
+  test("POST /api/say rejects oversize, extra, and non-image files", async () => {
+    const { SAY } = await import("#lib/say.ts");
+    const home = await channel();
+    const args = HomeRoutes.args();
+
+    const huge = new FormData();
+    huge.append("images", new File([new Uint8Array(SAY.maxBytes + 1)], "big.png", { type: "image/png" }));
+    const tooBig = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", { method: "POST", body: huge }),
+      args,
+    );
+    expect(tooBig.status).toBe(400);
+    expect(await tooBig.json()).toEqual({ ok: false, error: "image too large (max 3 MiB)" });
+
+    const pdf = new FormData();
+    pdf.append("images", new File([new Uint8Array([1, 2, 3])], "doc.pdf", { type: "application/pdf" }));
+    const badType = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", { method: "POST", body: pdf }),
+      args,
+    );
+    expect(await badType.json()).toEqual({ ok: false, error: "unsupported image type" });
+
+    const many = new FormData();
+    for (let i = 0; i < SAY.maxImages + 1; i++) {
+      many.append("images", new File([new Uint8Array([1, 2, 3])], `n${i}.png`, { type: "image/png" }));
+    }
+    const extra = await HomeRoutes.handler(home, "POST", "/api/say")(
+      new Request("http://local/api/say", { method: "POST", body: many }),
+      args,
+    );
+    expect(await extra.json()).toEqual({ ok: false, error: "too many images (max 4)" });
+  });
+
   test("GET /api/mindlog pages, etags, and answers 304", async () => {
     const home = await channel();
     await store.api.append({ kind: "note", text: "alpha" });

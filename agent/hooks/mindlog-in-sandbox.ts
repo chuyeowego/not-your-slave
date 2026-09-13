@@ -1,7 +1,7 @@
 import { defineHook, type HookContext } from "eve/hooks";
 import type { SandboxSession } from "eve/sandbox";
 
-import { read, version } from "../lib/mindlog";
+import { read, version, withoutImages } from "../lib/mindlog";
 
 const MINDLOG_COPY = "/workspace/mindlog.jsonl";
 
@@ -19,7 +19,7 @@ async function refreshMindlogCopy(sandbox: SandboxSession): Promise<void> {
     const stamp = `${sandbox.id}:${await version()}`;
     if (stamp === copied) return;
     const entries = await read(COPY_ENTRIES);
-    const content = entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n";
+    const content = entries.map((entry) => JSON.stringify(withoutImages(entry))).join("\n") + "\n";
     await sandbox.writeTextFile({ path: MINDLOG_COPY, content });
     copied = stamp;
   } catch {}

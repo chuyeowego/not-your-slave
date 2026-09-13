@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 
-import { search } from "../lib/mindlog";
+import { search, withoutImages } from "../lib/mindlog";
 
 export default defineTool({
   description:
@@ -11,7 +11,7 @@ export default defineTool({
     limit: z.number().int().min(1).max(100).default(20).describe("Most recent matches to return."),
   }),
   async execute({ query, limit }) {
-    const matches = await search(query, limit);
+    const matches = (await search(query, limit)).map(withoutImages);
     return { query, matches, count: matches.length };
   },
 });

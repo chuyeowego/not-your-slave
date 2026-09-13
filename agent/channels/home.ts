@@ -7,6 +7,7 @@ import { around, read, version } from "../lib/mindlog";
 import { PAGE } from "../lib/page";
 import { Pwa } from "../lib/pwa";
 import { Push } from "../lib/push";
+import { parseSay, toUserContent } from "../lib/say";
 import { HEARTBEAT, TIMELINE } from "../schedules/think";
 
 // A channel's own routes are not covered by the eve channel's auth policy, so
@@ -114,13 +115,16 @@ export default defineChannel({
       const denied = await guard(request);
       if (denied) return denied;
 
-      const { message } = (await request.json()) as { message?: unknown };
-      if (typeof message !== "string" || message.trim().length === 0) {
-        return Response.json({ ok: false, error: "message required" }, { status: 400 });
-      }
+      const parsed = await parseSay(request);
+      if (!parsed.ok) return Response.json({ ok: false, error: parsed.error }, { status: 400 });
 
-      const session = await from(TIMELINE).send(message, { auth: null });
-      return Response.json({ ok: true, sessionId: session.id });
+      try {
+        const session = await from(TIMELINE).send(toUserContent(parsed.value), { auth: null });
+        return Response.json({ ok: true, sessionId: session.id });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "send failed";
+        return Response.json({ ok: false, error: message }, { status: 500 });
+      }
     }),
 
     GET("/api/mindlog", async (request) => {

@@ -3,6 +3,7 @@ import vm from "node:vm";
 import { describe, expect, test } from "vitest";
 
 import { PAGE } from "#lib/page.ts";
+import { SAY } from "#lib/say.ts";
 
 describe("PAGE", () => {
   test("is a complete document with chat, mindlog, and the wake placeholder", () => {
@@ -25,6 +26,13 @@ describe("PAGE", () => {
     expect(PAGE).toContain("safe-area-inset");
     expect(PAGE).toContain("Add to Home Screen");
     expect(PAGE).toContain('notifyBtn.textContent = test.ok ? "test push" : "failed"');
+    expect(PAGE).toContain('id="attach"');
+    expect(PAGE).toContain('id="files"');
+    expect(PAGE).toContain("new FormData");
+    expect(PAGE).toContain("image/webp");
+    expect(PAGE).toContain("res.json().catch");
+    expect(PAGE).toContain("entry.images");
+    expect(PAGE).toContain(`const SAY = ${JSON.stringify(SAY)}`);
   });
 
   test("inlined scripts parse once the server placeholder is filled", () => {

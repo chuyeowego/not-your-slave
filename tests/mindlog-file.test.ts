@@ -142,4 +142,20 @@ describe("mindlog file store", () => {
     expect(place?.entry.text).toBe("legacy");
     expect(place?.entry.id).toBeUndefined();
   });
+
+  test("image data URLs round-trip and junk payloads are dropped", async () => {
+    const shot = { data: "data:image/png;base64,abc", filename: "shot.png", mediaType: "image/png" };
+    await store.api.append({
+      kind: "heard",
+      text: "(image)\n[file: shot.png (image/png)]",
+      images: [shot, { data: "https://evil.example/x.png", filename: "nope", mediaType: "image/png" }],
+    });
+    const [entry] = await store.api.read();
+    expect(entry.images).toEqual([shot]);
+    expect(store.api.withoutImages(entry).images).toBeUndefined();
+    expect(store.api.imagesFromParts([
+      { type: "text", text: "(image)" },
+      { type: "file", filename: "shot.png", mediaType: "image/png", url: shot.data },
+    ])).toEqual([shot]);
+  });
 });

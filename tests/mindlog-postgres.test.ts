@@ -146,4 +146,13 @@ describe("mindlog postgres store", () => {
     expect(entry.text).toBe(long);
     expect(entry.sessionId).toBe("ses_pg");
   });
+
+  test("image data URLs round-trip on the jsonb column", async () => {
+    const shot = { data: "data:image/png;base64,abc", filename: "shot.png", mediaType: "image/png" };
+    await store.api.append({ kind: "heard", text: "(image)", images: [shot], sessionId: "ses_img" });
+    const [entry] = await store.api.read();
+    expect(entry.images).toEqual([shot]);
+    const place = await store.api.around(entry.id!);
+    expect(place?.entry.images).toEqual([shot]);
+  });
 });

@@ -53,6 +53,7 @@ the architecture 04–06 describe.
 | `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
 | `agent/schedules/think.ts` | the heartbeat, every hour |
 | `agent/channels/home.ts` | the page, `/entry/:key`, PWA files, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think`, `/api/push/*` |
+| `agent/lib/say.ts` | `/api/say` parsing: text, image parts, size/type limits |
 | `agent/lib/entry-page.ts` | one entry on its own bookmarkable page, neighbours dimmed around it |
 | `agent/lib/style.ts` | the palette, shared by both pages |
 | `agent/lib/page.ts` | the single-file UI |
@@ -65,6 +66,12 @@ the architecture 04–06 describe.
 Change the id in `agent/agent.ts`; it is a Gateway catalog slug, so no provider
 package is involved. Set `modelContextWindowTokens` to match, because the
 middleware that caps output tokens hides the id from eve's catalog lookup.
+
+The home composer can attach jpeg, png, webp, or gif images (file picker, paste,
+or drop). They go to the model as eve file parts on `POST /api/say`: a `data:`
+URL so the bytes survive the durable queue, not an http URL the model cannot
+fetch. Up to four images, 3 MiB each — that is the size eve still restores as
+vision bytes.
 
 Credentials, either one:
 
