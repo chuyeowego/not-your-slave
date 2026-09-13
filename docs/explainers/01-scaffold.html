@@ -290,7 +290,7 @@ export default eveChannel({
   ],
 });</pre>
 
-<p>This is the scaffold's file, kept as-is, and it is worth reading now because it produces a surprise in commit 5. <code>localDev()</code> is what lets a browser on <code>127.0.0.1</code> talk to the API with no credentials during development, and it is explicitly inert in a production build. So the web UI we are about to build works under <code>npm run dev</code> and gets a flat <code>401 unauthorized</code> from <code>npm start</code> until a real auth provider replaces the placeholder.</p>
+<p>This is the scaffold's file, and it is worth reading now because it produces a surprise in commit 5. <code>localDev()</code> is what lets a browser on <code>127.0.0.1</code> talk to the API with no credentials during development, and it is explicitly inert in a production build.</p>
 
 <h3>The identity, in its first form</h3>
 
@@ -341,7 +341,7 @@ your timeline.</pre>
     <div class="fb"></div>
   </div>
 
-  <div class="q" data-answer="a" data-explain="localDev() is explicitly ignored in production builds. The web UI added later works under `eve dev` and gets 401s from `npm start` until placeholderAuth() is replaced with a real provider (or none() for a localhost-only daemon).">
+  <div class="q" data-answer="a" data-explain="localDev() is explicitly ignored in production builds. The web UI added later works under `eve dev` and gets 401s from `npm start` until placeholderAuth() is replaced with a real provider.">
     <span class="n">Question 3</span>
     <p class="ask">The scaffolded <code>channels/eve.ts</code> lists <code>vercelOidc()</code>, <code>localDev()</code>, and <code>placeholderAuth()</code>. What follows for the browser UI built later in this series?</p>
     <button class="opt" data-key="a">It works under <code>eve dev</code> because <code>localDev()</code> opens localhost, and is refused by the built server, where <code>localDev()</code> is ignored.</button>
