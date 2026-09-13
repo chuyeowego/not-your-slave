@@ -25,6 +25,7 @@ describe("PAGE", () => {
     expect(PAGE).toContain("viewport-fit=cover");
     expect(PAGE).toContain("safe-area-inset");
     expect(PAGE).toContain("Add to Home Screen");
+    expect(PAGE).toContain('notifyBtn.textContent = test.ok ? "test push" : "failed"');
     expect(PAGE).toContain('id="attach"');
     expect(PAGE).toContain('id="files"');
     expect(PAGE).toContain("new FormData");
