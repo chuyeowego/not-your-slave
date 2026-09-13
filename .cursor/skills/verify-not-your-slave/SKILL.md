@@ -1,172 +1,133 @@
 ---
 name: verify-not-your-slave
-description: "Drive and prove not-your-slave locally: the eve agent web UI at http://127.0.0.1:2000 (chat + mindlog panel) and its HTTP API. Use before shipping UI/API changes, when debugging mindlog capture, or when an agent needs scripted end-to-end proof of this app."
+description: "Drive and prove not-your-slave locally: eve dev web UI (conversation log, text/photo send, Wake it, push) plus HTTP API. Use before shipping UI, mindlog, say, or push changes."
 ---
 
 # Verify not-your-slave
 
-**not-your-slave** is an eve agent app whose primary surface is a **single-page web UI** (chat left, mindlog right) served by `eve dev` / `eve start`. Secondary surfaces: **HTTP JSON API** on the same origin (`/api/*`), **PWA install assets** (`/manifest.webmanifest`, `/sw.js`), and the **eve protocol** at `/eve/v1` (used by the page's live stream).
+**not-your-slave** is an eve agent app: one page at `/` (chat left, mindlog right), one durable session, HTTP API on the same origin. Verification starts a real `eve dev` server and drives real controls — no test-only routes.
+
+Harness: **`.cursor/skills/verify-not-your-slave/helpers/verify-nys`** (launch, doctor, drive, cleanup). Browser scenarios use headless Chrome via `lib/cdp.mjs` (zero Playwright dependency).
 
 ## Launch
 
-**Requires Node.js >= 24** (`package.json` engines). On hosts where `/exec-daemon/node` is older, the helper prepends an nvm Node 24 install to `PATH`.
-
-From the repo root:
-
-```bash
-.cursor/skills/verify-not-your-slave/helpers/verify-nys launch --port 2000
-```
-
-What it does:
-
-- Sets `MINDLOG_FILE` to an isolated JSONL file under `.cursor/skills/verify-not-your-slave/.run/<run-id>/data/mindlog.jsonl` (no Postgres required).
-- Runs `npm run dev -- --port <port> --no-ui` (equivalent to `eve dev`).
-- `eve dev` sets `EVE_DEV=1`, so **localhost is open** — no `AGENT_USER` / `AGENT_PASS` needed.
-- Writes state to `.cursor/skills/verify-not-your-slave/.run/<run-id>/state.env` with `PID`, `PORT`, `BASE_URL`, `MINDLOG_FILE`.
-
-**Readiness:** `GET http://127.0.0.1:<port>/` returns `200` with `text/html` containing `an agent that thinks for itself`.
-
-**Teardown:** `.cursor/skills/verify-not-your-slave/helpers/verify-nys cleanup` — kills the **PID from state**, removes the run directory, **never deletes evidence**.
-
-**Isolation:** Default port is `2000`. Only one verification instance should bind a given port. Use `--port 2001` (or `VERIFY_NYS_PORT`) for a side-by-side run on another port with its own `MINDLOG_FILE`. Do **not** drive a dev server the user already has on that port — refuse and pick another port.
-
-**Credentials (optional for most checks):**
-
-- `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` in `.env.local` — required only for live LLM turns (`POST /api/say`, `POST /api/think` completing a reply).
-- `VAPID_*` — required only for Web Push (`notify` button, `POST /api/push/test`).
-
-File-backed mindlog works with zero extra env.
-
-## Doctor
-
-One read-only gate before driving:
-
-```bash
-.cursor/skills/verify-not-your-slave/helpers/verify-nys doctor
-```
-
-Pass criteria:
-
-- State file exists for the latest (or `STATE_FILE`) run.
-- `kill -0 $PID` succeeds.
-- `GET $BASE_URL/` → 200.
-- `GET $BASE_URL/api/session` → JSON with `sessionId` (may be `null` before first message).
-- `MINDLOG_FILE` exists on disk.
-- Printed `node` version is `v24+` and `pkg` matches `package.json`.
-
-Exit code `0` = worth driving. Non-zero = run `cleanup`, fix launch (Node version, port conflict, build errors in `.run/<run-id>/dev.log`), relaunch.
-
-## Drive
-
-Harness: **`verify-nys`** (curl over the running instance). For browser-only flows (theme toggle, mobile mindlog drawer), use Playwright/CDP against `$BASE_URL` with the same selectors documented in feature files.
-
-Always run `doctor` first. Pick a feature from [`features/README.md`](features/README.md).
-
-### HTTP recipe (all features)
+**Node.js >= 24** required. The helper prepends nvm Node 24 when `/exec-daemon/node` is older.
 
 ```bash
 H=.cursor/skills/verify-not-your-slave/helpers/verify-nys
-
-# Read mindlog (newest-first)
-$H api GET '/api/mindlog?limit=20'
-
-# Send a chat message (needs AI credentials; queues agent turn)
-$H api POST /api/say '{"message":"hello from verification"}'
-
-# Manual heartbeat (needs AI credentials)
-$H api POST /api/think
-
-# Session id
-$H api GET /api/session
-
-# Public PWA manifest (no auth)
-curl -fsS "$BASE_URL/manifest.webmanifest"
+$H launch --port 2000 --run-id my-run
 ```
 
-### UI selectors (from `agent/lib/page.ts`)
+What launch does:
+
+- Isolates `MINDLOG_FILE` and `PUSH_FILE` under `.cursor/skills/verify-not-your-slave/.run/<run-id>/data/`.
+- Writes **`agent/sandbox.ts`** scaffolding (`justbash()` backend) unless one already exists without the verification marker. Use `--sandbox real` to skip.
+- Clears **only** `.eve/.workflow-data` (stale session state); never deletes `.eve/dev-runtime`.
+- Runs `npm run dev -- --port <port> --no-ui`; `EVE_DEV=1` keeps localhost open (no Basic auth).
+- Loads **`.env.local`** from the repo root when present (`AI_GATEWAY_API_KEY`, `VAPID_*`, etc.).
+- Records state in `.cursor/skills/verify-not-your-slave/.run/<run-id>/state.env`.
+
+**Readiness:** `GET /` returns 200 with `id="composer"` and `id="mindlog"`.
+
+**Teardown:** `$H cleanup` — kills the **PID from state**, removes sandbox scaffold if ours, deletes the run dir, **never** deletes `evidence/`.
+
+**Isolation:** One instance per port. Use `--port 2001` for side-by-side runs. Do not drive a port you did not launch.
+
+## Doctor
+
+```bash
+$H doctor
+```
+
+Pass: process alive, `/` has composer + mindlog markers, `/api/session` and `/api/mindlog` answer, mindlog file exists. Reports **tier**:
+
+| Tier | Credential | What full proofs need |
+| --- | --- | --- |
+| **A** | No `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` | UI, `heard` mindlog rows, photo bytes, `woke` entries. Model reply may show `[AI Gateway received no credentials.]` — that is expected, not a failure. |
+| **B** | AI credential in `.env.local` | Agent `said` / `thought` after chat or Wake it. |
+
+**VAPID** (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, optional `VAPID_SUBJECT`) is separate — required only for `push-notify`.
+
+## Drive
+
+```bash
+$H drive --list
+$H drive conversation-log
+$H drive text-persist
+$H drive photo-persist
+$H drive send-photo
+$H drive say-limits
+$H drive wake-it
+$H drive push-notify
+```
+
+Each scenario writes `evidence/<scenario>/<run-id>/result.json` plus screenshots. Run `doctor` first.
+
+### Stable UI handles (`agent/lib/page.ts`)
 
 | Control | Handle |
 | --- | --- |
-| Chat input | `#input` (textarea) |
-| Send | `button[type=submit]` text **Send** |
+| Chat input | `#input` |
+| Send | `#composer button[type=submit]` |
+| Attach | `#attach` → `#files` (`accept` image types) |
+| Previews | `#previews img` |
+| Conversation log | `#chat .msg.me`, `#chat .msg.it`, `#chat .woke` |
+| User images in log | `#chat .msg.me img.pic` |
 | Status | `#status` |
-| Open mindlog (mobile) | `#mindlog-open` text **mindlog** |
-| Wake heartbeat | `#think` text **Wake it** |
-| Close mindlog (mobile) | `#mindlog-close` aria-label **Close the mindlog** |
-| Notify / push | `#notify` text **notify** |
-| Theme | `#theme` aria-label **Switch theme** |
-| Mindlog entries | `#mindlog .entry` with `.kind` and `.text` |
-| Entry permalink | `#mindlog .entry .at` href `/entry/<id>` |
+| Wake it | `#think` |
+| Mindlog pane | `#mindlog`, `#mindlog-open` |
+| Notify | `#notify` |
 
-### Verification scaffolding
-
-To prove read-only mindlog UI/API without calling the model, seed a note:
+### HTTP shortcuts
 
 ```bash
-$H seed-note "verification probe"
+$H api POST /api/say '{"message":"hello"}'
+$H api POST /api/think
+$H api GET '/api/mindlog?limit=20'
+curl -fsS "$BASE_URL/manifest.webmanifest"
 ```
 
-This appends one JSONL `note` row to the run's `MINDLOG_FILE`. Remove seeded rows in fixture cleanup if the feature mutates data; keep proof artifacts.
+Multipart photos (same as the page): `message` + `images` file parts on `POST /api/say`.
 
 ## Evidence
 
-Capture to:
-
 ```
-.cursor/skills/verify-not-your-slave/evidence/<feature-id>/<run-id>/
-```
-
-Helper:
-
-```bash
-$H capture <feature-id> <label>
+.cursor/skills/verify-not-your-slave/evidence/<scenario>/<run-id>/
+  result.json          every check with pass/fail
+  *.png                screenshots
 ```
 
-Writes `<label>.json` (`GET /api/mindlog` body), `<label>-home.html` (`GET /`), and `README.txt` metadata.
-
-**Proof standards:**
-
-- Exercise the **real user path** (page load + API the UI calls, or browser interaction).
-- Capture **action + resulting state** (request/response bodies, HTML snippet), not only exit codes.
-- Verify **side effects** (mindlog file line, JSON `entries` array) alongside visible UI.
-- Mocks only at production boundaries (e.g. skip live LLM by using `seed-note` for mindlog-only proofs; label that as scaffolding).
-- `POST /api/push/test` with no VAPID returns `503` `{ ok: true, skipped: "vapid" }` — that is expected, not a pass for push delivery.
-
-**After `cleanup`:** evidence under `evidence/` must still exist. If cleanup removed it, the run failed.
+**Proof standards:** real user path (file picker, submit, Wake button, Notify flow); capture action **and** side effect (`heard` with inline `data:image/` bytes in `/api/mindlog`); after `cleanup`, evidence must still exist.
 
 ## Cleanup
 
 ```bash
-.cursor/skills/verify-not-your-slave/helpers/verify-nys cleanup
+$H cleanup
 ```
 
-- Stops the **PID recorded in state** (never `pkill eve` / `killall node`).
-- Deletes `.cursor/skills/verify-not-your-slave/.run/<run-id>/` (logs, isolated mindlog, state).
-- **Does not** delete `.cursor/skills/verify-not-your-slave/evidence/`.
-
-Run cleanup after every failed attempt to avoid stranded ports.
+Kills recorded PID only (never `pkill eve`). Removes run dir and verification `agent/sandbox.ts` when marked. Keeps `evidence/`. Run after failed attempts.
 
 ## Helpers
 
-| Script | Purpose |
+| Path | Role |
 | --- | --- |
-| `.cursor/skills/verify-not-your-slave/helpers/verify-nys` | launch, doctor, api, seed-note, capture, cleanup |
+| `helpers/verify-nys` | launch, doctor, drive, api, cleanup |
+| `helpers/drive.mjs` | scenario runner |
+| `lib/cdp.mjs` | headless Chrome CDP (`withPage`) |
+| `lib/fixtures.mjs` | `pngFixture()` for real PNG bytes |
+| `scenarios/*.mjs` | one feature per file |
 
-Make executable once per clone:
-
-```bash
-chmod +x .cursor/skills/verify-not-your-slave/helpers/verify-nys
-```
-
-Example end-to-end (mindlog panel, no AI key):
+Example (tier A, no AI key):
 
 ```bash
 H=.cursor/skills/verify-not-your-slave/helpers/verify-nys
-$H launch --port 2000
+$H launch --port 2001 --run-id prove-a
 $H doctor
-$H seed-note "verification probe"
-$H api GET '/api/mindlog?limit=5'
-$H capture mindlog-panel proof
+$H drive conversation-log
+$H drive text-persist
+$H drive photo-persist
+$H drive wake-it
 $H cleanup
-test -f .cursor/skills/verify-not-your-slave/evidence/mindlog-panel/*/proof.json
 ```
+
+Feature recipes: [`features/README.md`](features/README.md). Keep the map honest with `/maintain-verification-skill`.

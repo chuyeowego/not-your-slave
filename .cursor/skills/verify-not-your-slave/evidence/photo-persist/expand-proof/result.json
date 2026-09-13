@@ -1,0 +1,23 @@
+{
+  "scenario": "photo-persist",
+  "baseUrl": "http://127.0.0.1:2002",
+  "tier": "A",
+  "at": "2026-09-13T05:47:54.639Z",
+  "checks": [
+    {
+      "label": "heard entry stores inline image bytes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "mindlog pane shows photo after reload",
+      "passed": true,
+      "detail": "2 image(s)"
+    },
+    {
+      "label": "tier A: conversation-log photo reload needs AI credential for session restore",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "scenario": "conversation-log",
+  "baseUrl": "http://127.0.0.1:2002",
+  "tier": "A",
+  "at": "2026-09-13T05:47:49.758Z",
+  "checks": [
+    {
+      "label": "conversation log shows sent text immediately",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "mindlog records heard for the same message",
+      "passed": true,
+      "detail": "verify-conversation-1789278468854"
+    }
+  ]
+}

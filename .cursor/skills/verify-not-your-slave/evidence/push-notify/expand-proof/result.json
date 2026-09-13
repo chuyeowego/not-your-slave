@@ -1,0 +1,13 @@
+{
+  "scenario": "push-notify",
+  "baseUrl": "http://127.0.0.1:2002",
+  "tier": "A",
+  "at": "2026-09-13T05:47:55.298Z",
+  "checks": [
+    {
+      "label": "VAPID keys configured",
+      "passed": false,
+      "detail": "set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in .env.local"
+    }
+  ]
+}

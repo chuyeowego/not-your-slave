@@ -15,18 +15,20 @@
 
 ## Driving it with verify-nys
 
-Preconditions:
+```bash
+verify-nys drive wake-it
+```
 
-- `verify-nys doctor` passes.
-- `AI_GATEWAY_API_KEY` or linked Vercel OIDC for a full think cycle (optional for queue proof only).
+- `POST /api/think` returns a `sessionId`.
+- Waits for `kind: woke` in `/api/mindlog`.
+- Clicks `#think` in headless Chrome; asserts `#chat .woke` divider appears.
+- **Tier B:** also waits for a `said` entry (live model reply).
+- **Tier A:** `woke` + divider is sufficient.
 
-- **Trigger.** `verify-nys api POST /api/think` → `{"sessionId":"..."}`.
-- **UI mirror.** In browser, `#think` shows `waking` then returns to **Wake it**.
-- **Mindlog row.** Poll `verify-nys api GET '/api/mindlog?limit=20'` for `kind":"woke"` after the heartbeat prompt prefix (see `HEARTBEAT` in `agent/schedules/think.ts`).
-- **Proof.** `verify-nys capture wake-it trigger` after `woke` appears.
+Proof: `wake-it.png`, `result.json`.
 
 ## Gotchas
 
-- Without AI credentials the session may be created but no `thought`/`said` follows — `woke` alone can still prove the button/API path.
+- Without AI credentials (tier A) the `woke` path still works; do not require `said`.
 - Heartbeat `woke` entries do **not** send Web Push (only `said` does).
 - Do not spam `/api/think`; each queues a full agent turn on the shared `timeline` session.

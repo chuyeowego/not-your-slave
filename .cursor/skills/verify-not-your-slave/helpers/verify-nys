@@ -6,24 +6,30 @@ SKILL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$SKILL_ROOT/../../.." && pwd)"
 STATE_DIR="${VERIFY_NYS_STATE_DIR:-$SKILL_ROOT/.run}"
 EVIDENCE_ROOT="$SKILL_ROOT/evidence"
+SCAFFOLD_MARKER="VERIFICATION SCAFFOLDING — written by .cursor/skills/verify-not-your-slave"
+SCAFFOLD="$REPO_ROOT/agent/sandbox.ts"
 
 usage() {
   cat <<'EOF'
 Usage: verify-nys <command> [args]
 
 Commands:
-  launch [--port N] [--run-id ID]   Start eve dev with isolated mindlog; write state file
-  doctor                            Read-only health check for the launched instance
-  api <METHOD> <path> [json-body]   Call the running instance (curl wrapper)
-  seed-note <text>                  Append a mindlog note (verification scaffolding)
-  capture <feature-id> <label>      Save API response body to evidence/<feature>/<run-id>/
-  cleanup                           Stop the instance from state; keep evidence
-  print-state                       Print active run variables
+  launch [--port N] [--run-id ID] [--sandbox just-bash|real]
+  doctor                              Read-only health + credential tier
+  drive <scenario>                      Run a scenario (see: drive --list)
+  api <METHOD> <path> [json-body]       curl wrapper for the running instance
+  seed-note <text>                      Append a mindlog note (scaffolding only)
+  capture <feature-id> <label>          Save mindlog + home HTML evidence
+  cleanup                               Stop instance; keep evidence/
+  print-state                           Print active run variables
+
+Scenarios (verify-nys drive --list):
+  conversation-log  text-persist  photo-persist  send-photo  say-limits
+  wake-it           push-notify
 
 Environment:
-  VERIFY_NYS_PORT        Override default port (2000)
-  VERIFY_NYS_RUN_ID      Run identifier (default: timestamp)
-  VERIFY_NYS_STATE_DIR   State directory (default: .cursor/skills/verify-not-your-slave/.run)
+  VERIFY_NYS_PORT / VERIFY_NYS_RUN_ID / VERIFY_NYS_STATE_DIR
+  Loads .env.local from repo root when present (AI_GATEWAY_API_KEY, VAPID_*).
 EOF
 }
 
@@ -38,6 +44,7 @@ require_state() {
 
 ensure_node24() {
   if command -v node >/dev/null 2>&1 && node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'; then
+    export PATH="$(dirname "$(command -v node)"):$PATH"
     return 0
   fi
   if [[ -f "$HOME/.nvm/nvm.sh" ]]; then
@@ -52,17 +59,76 @@ ensure_node24() {
     export PATH="$nvm_node:$PATH"
   fi
   if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'; then
-    echo "verify-nys: Node.js >= 24 required (eve dev). Found: $(node --version 2>/dev/null || echo missing)" >&2
+    echo "verify-nys: Node.js >= 24 required. Found: $(node --version 2>/dev/null || echo missing)" >&2
     exit 1
+  fi
+}
+
+load_env_local() {
+  if [[ -f "$REPO_ROOT/.env.local" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$REPO_ROOT/.env.local"
+    set +a
+  fi
+}
+
+credential_flags() {
+  local ai="absent" vapid="absent"
+  if [[ -n "${AI_GATEWAY_API_KEY:-}" || -n "${VERCEL_OIDC_TOKEN:-}" ]]; then
+    ai="present"
+  fi
+  if [[ -n "${VAPID_PUBLIC_KEY:-}" && -n "${VAPID_PRIVATE_KEY:-}" ]]; then
+    vapid="present"
+  fi
+  echo "AI_CREDENTIAL=$ai"
+  echo "VAPID_CREDENTIAL=$vapid"
+}
+
+write_sandbox_scaffold() {
+  local run_dir="$1"
+  local sandbox_mode="$2"
+  if [[ "$sandbox_mode" == "real" ]]; then
+    echo "scaffold-skipped: --sandbox real" >"$run_dir/scaffold.txt"
+    return 0
+  fi
+  if [[ -e "$SCAFFOLD" ]] && ! grep -qF "$SCAFFOLD_MARKER" "$SCAFFOLD"; then
+    echo "scaffold-skipped: agent/sandbox.ts is not verification scaffolding" >"$run_dir/scaffold.txt"
+    return 0
+  fi
+  cat >"$SCAFFOLD" <<'EOF'
+// VERIFICATION SCAFFOLDING — written by .cursor/skills/verify-not-your-slave.
+// `verify-nys cleanup` deletes this file when it carries the marker above.
+import { defineSandbox } from "eve/sandbox";
+import { justbash } from "eve/sandbox/just-bash";
+
+export default defineSandbox({
+  backend: justbash(),
+});
+EOF
+  echo "scaffold-created" >"$run_dir/scaffold.txt"
+}
+
+remove_sandbox_scaffold() {
+  if [[ -f "$SCAFFOLD" ]] && grep -qF "$SCAFFOLD_MARKER" "$SCAFFOLD"; then
+    rm -f "$SCAFFOLD"
+    echo "verify-nys cleanup: removed sandbox scaffold"
   fi
 }
 
 wait_ready() {
   local url="$1"
-  local tries=60
+  local log_file="$2"
+  local tries=120
   while (( tries > 0 )); do
     if curl -fsS -o /dev/null "$url/"; then
       return 0
+    fi
+    if [[ -f "$log_file" ]] && grep -q "server listening" "$log_file"; then
+      sleep 0.5
+      if curl -fsS -o /dev/null "$url/"; then
+        return 0
+      fi
     fi
     sleep 0.5
     tries=$((tries - 1))
@@ -71,78 +137,98 @@ wait_ready() {
   return 1
 }
 
+resolve_state_file() {
+  if [[ -n "${STATE_FILE:-}" ]]; then
+    return 0
+  fi
+  local latest
+  latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+  if [[ -z "$latest" ]]; then
+    echo "verify-nys: no launch state under $STATE_DIR" >&2
+    exit 1
+  fi
+  STATE_FILE="$STATE_DIR/$latest/state.env"
+}
+
 cmd_launch() {
   local port="${VERIFY_NYS_PORT:-2000}"
   local run_id="${VERIFY_NYS_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+  local sandbox_mode="just-bash"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --port) port="$2"; shift 2 ;;
       --run-id) run_id="$2"; shift 2 ;;
+      --sandbox) sandbox_mode="$2"; shift 2 ;;
       *) echo "verify-nys launch: unknown arg $1" >&2; exit 1 ;;
     esac
   done
 
   ensure_node24
+  load_env_local
   mkdir -p "$STATE_DIR/$run_id"
   STATE_FILE="$STATE_DIR/$run_id/state.env"
-  export STATE_FILE
 
   local data_dir="$STATE_DIR/$run_id/data"
   mkdir -p "$data_dir"
   local mindlog_file="$data_dir/mindlog.jsonl"
-  touch "$mindlog_file"
-
+  local push_file="$data_dir/push.jsonl"
+  touch "$mindlog_file" "$push_file"
   local log_file="$STATE_DIR/$run_id/dev.log"
+
+  write_sandbox_scaffold "$STATE_DIR/$run_id" "$sandbox_mode"
+  rm -rf "$REPO_ROOT/.eve/.workflow-data"
+
   (
     cd "$REPO_ROOT"
     export MINDLOG_FILE="$mindlog_file"
+    export PUSH_FILE="$push_file"
     export PATH="$(dirname "$(command -v node)"):$PATH"
     npm run dev -- --port "$port" --no-ui
   ) >"$log_file" 2>&1 &
   local pid=$!
 
   local base="http://127.0.0.1:$port"
-  if ! wait_ready "$base"; then
+  if ! wait_ready "$base" "$log_file"; then
     kill "$pid" 2>/dev/null || true
     echo "verify-nys: launch failed; see $log_file" >&2
-    tail -20 "$log_file" >&2 || true
+    tail -30 "$log_file" >&2 || true
     exit 1
   fi
 
-  cat >"$STATE_FILE" <<EOF
-RUN_ID=$run_id
-PID=$pid
-PORT=$port
-BASE_URL=$base
-MINDLOG_FILE=$mindlog_file
-LOG_FILE=$log_file
-REPO_ROOT=$REPO_ROOT
-EVIDENCE_DIR=$EVIDENCE_ROOT
-STATE_FILE=$STATE_FILE
-NODE_VERSION=$(node --version)
-PACKAGE_VERSION=$(node -p "require('$REPO_ROOT/package.json').version")
-EOF
+  {
+    echo "RUN_ID=$run_id"
+    echo "PID=$pid"
+    echo "PORT=$port"
+    echo "BASE_URL=$base"
+    echo "MINDLOG_FILE=$mindlog_file"
+    echo "PUSH_FILE=$push_file"
+    echo "LOG_FILE=$log_file"
+    echo "REPO_ROOT=$REPO_ROOT"
+    echo "EVIDENCE_DIR=$EVIDENCE_ROOT"
+    echo "STATE_FILE=$STATE_FILE"
+    echo "NODE_VERSION=$(node --version)"
+    echo "PACKAGE_VERSION=$(node -p "require('$REPO_ROOT/package.json').version")"
+    credential_flags
+  } >"$STATE_FILE"
 
   echo "verify-nys: launched pid=$pid port=$port run_id=$run_id"
   echo "verify-nys: state $STATE_FILE"
+  # shellcheck disable=SC1090
+  source "$STATE_FILE"
+  echo "verify-nys: tier $( [[ "$AI_CREDENTIAL" == present ]] && echo B || echo A ) (AI $AI_CREDENTIAL, VAPID $VAPID_CREDENTIAL)"
 }
 
 cmd_doctor() {
-  # Use latest run if STATE_FILE unset
-  if [[ -z "${STATE_FILE:-}" ]]; then
-    local latest
-    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
-    if [[ -z "$latest" ]]; then
-      echo "verify-nys doctor: FAIL — no launch state under $STATE_DIR" >&2
-      exit 1
-    fi
-    STATE_FILE="$STATE_DIR/$latest/state.env"
-  fi
+  resolve_state_file
   require_state
+  load_env_local
 
   local ok=1
-  echo "verify-nys doctor: run_id=$RUN_ID port=$PORT node=$NODE_VERSION pkg=$PACKAGE_VERSION"
+  local tier="A"
+  [[ "${AI_CREDENTIAL:-absent}" == "present" ]] && tier="B"
+
+  echo "verify-nys doctor: run_id=$RUN_ID port=$PORT node=$NODE_VERSION pkg=$PACKAGE_VERSION tier=$tier"
 
   if kill -0 "$PID" 2>/dev/null; then
     echo "  process: ok (pid $PID)"
@@ -151,28 +237,40 @@ cmd_doctor() {
     ok=0
   fi
 
-  if curl -fsS -o /dev/null "$BASE_URL/"; then
-    echo "  GET /: ok"
+  local html
+  html="$(curl -fsS "$BASE_URL/" || true)"
+  if [[ "$html" == *'id="composer"'* && "$html" == *'id="mindlog"'* ]]; then
+    echo "  GET /: ok (composer + mindlog markers)"
   else
-    echo "  GET /: FAIL" >&2
+    echo "  GET /: FAIL (missing app markers)" >&2
     ok=0
   fi
 
-  local session_json
+  local session_json mindlog_json
   session_json="$(curl -fsS "$BASE_URL/api/session" || true)"
+  mindlog_json="$(curl -fsS "$BASE_URL/api/mindlog?limit=1" || true)"
   if [[ "$session_json" == *"sessionId"* ]]; then
     echo "  GET /api/session: ok ($session_json)"
   else
     echo "  GET /api/session: FAIL" >&2
     ok=0
   fi
-
-  if [[ -f "$MINDLOG_FILE" ]]; then
-    echo "  mindlog: ok ($MINDLOG_FILE)"
+  if [[ "$mindlog_json" == *"entries"* ]]; then
+    echo "  GET /api/mindlog: ok"
   else
-    echo "  mindlog: FAIL (missing $MINDLOG_FILE)" >&2
+    echo "  GET /api/mindlog: FAIL" >&2
     ok=0
   fi
+
+  if [[ -f "$MINDLOG_FILE" ]]; then
+    echo "  mindlog file: ok ($MINDLOG_FILE)"
+  else
+    echo "  mindlog file: FAIL" >&2
+    ok=0
+  fi
+
+  echo "  AI credential: ${AI_CREDENTIAL:-absent}"
+  echo "  VAPID credential: ${VAPID_CREDENTIAL:-absent}"
 
   if (( ok == 0 )); then
     exit 1
@@ -180,115 +278,79 @@ cmd_doctor() {
   echo "verify-nys doctor: PASS"
 }
 
-cmd_api() {
-  if [[ -z "${STATE_FILE:-}" ]]; then
-    local latest
-    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
-    STATE_FILE="$STATE_DIR/$latest/state.env"
+cmd_drive() {
+  if [[ "${1:-}" == "--list" ]]; then
+    export PATH="$(dirname "$(command -v node)"):$PATH"
+    node "$SKILL_ROOT/helpers/drive.mjs" --list
+    return 0
   fi
-  require_state
+  local scenario="${1:?scenario name}"
+  resolve_state_file
+  export STATE_FILE
+  export PATH="$(dirname "$(command -v node)"):$PATH"
+  node "$SKILL_ROOT/helpers/drive.mjs" "$scenario"
+}
 
+cmd_api() {
+  resolve_state_file
+  require_state
   local method="${1:?METHOD}"
   local path="${2:?PATH}"
   shift 2
   local body="${1:-}"
-
   local url="$BASE_URL$path"
   if [[ -n "$body" ]]; then
-    curl -fsS -X "$method" "$url" \
-      -H 'content-type: application/json' \
-      -d "$body"
+    curl -fsS -X "$method" "$url" -H 'content-type: application/json' -d "$body"
   else
     curl -fsS -X "$method" "$url"
   fi
 }
 
 cmd_seed_note() {
-  if [[ -z "${STATE_FILE:-}" ]]; then
-    local latest
-    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
-    STATE_FILE="$STATE_DIR/$latest/state.env"
-  fi
+  resolve_state_file
   require_state
-
   local text="${1:?note text}"
-  local id
+  local id at
   id="$(node -e "console.log(require('node:crypto').randomBytes(6).toString('hex'))")"
-  local at
   at="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
   printf '{"id":"%s","at":"%s","kind":"note","text":"%s"}\n' "$id" "$at" "$text" >>"$MINDLOG_FILE"
   echo "$id"
 }
 
 cmd_capture() {
-  if [[ -z "${STATE_FILE:-}" ]]; then
-    local latest
-    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
-    STATE_FILE="$STATE_DIR/$latest/state.env"
-  fi
+  resolve_state_file
   require_state
-
   local feature="${1:?feature-id}"
   local label="${2:?label}"
   local dest="$EVIDENCE_DIR/$feature/$RUN_ID"
   mkdir -p "$dest"
-
-  local mindlog_json
-  mindlog_json="$(cmd_api GET /api/mindlog)"
-  local outfile="$dest/${label}.json"
-  printf '%s\n' "$mindlog_json" >"$outfile"
-
-  local home_html
-  home_html="$(curl -fsS "$BASE_URL/")"
-  local htmlfile="$dest/${label}-home.html"
-  printf '%s\n' "$home_html" >"$htmlfile"
-
+  cmd_api GET /api/mindlog >"$dest/${label}.json"
+  curl -fsS "$BASE_URL/" >"$dest/${label}-home.html"
   cat >"$dest/README.txt" <<EOF
 feature=$feature
 run_id=$RUN_ID
 captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 base_url=$BASE_URL
-mindlog_file=$MINDLOG_FILE
-artifacts:
-  $outfile
-  $htmlfile
 EOF
   echo "$dest"
 }
 
 cmd_cleanup() {
-  if [[ -z "${STATE_FILE:-}" ]]; then
-    local latest
-    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
-    if [[ -z "$latest" ]]; then
-      echo "verify-nys cleanup: nothing to clean"
-      return 0
-    fi
-    STATE_FILE="$STATE_DIR/$latest/state.env"
-  fi
+  resolve_state_file
   require_state
-
   if kill -0 "$PID" 2>/dev/null; then
     kill "$PID" 2>/dev/null || true
     sleep 0.5
-    if kill -0 "$PID" 2>/dev/null; then
-      kill -9 "$PID" 2>/dev/null || true
-    fi
+    kill -9 "$PID" 2>/dev/null || true
     echo "verify-nys cleanup: stopped pid $PID"
-  else
-    echo "verify-nys cleanup: pid $PID already stopped"
   fi
-
+  remove_sandbox_scaffold
   rm -rf "$STATE_DIR/$RUN_ID"
   echo "verify-nys cleanup: removed run state (evidence kept under $EVIDENCE_DIR)"
 }
 
 cmd_print_state() {
-  if [[ -z "${STATE_FILE:-}" ]]; then
-    local latest
-    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
-    [[ -n "$latest" ]] && STATE_FILE="$STATE_DIR/$latest/state.env"
-  fi
+  resolve_state_file
   require_state
   cat "$STATE_FILE"
 }
@@ -299,6 +361,7 @@ main() {
   case "$cmd" in
     launch) cmd_launch "$@" ;;
     doctor) cmd_doctor "$@" ;;
+    drive) cmd_drive "$@" ;;
     api) cmd_api "$@" ;;
     seed-note) cmd_seed_note "$@" ;;
     capture) cmd_capture "$@" ;;

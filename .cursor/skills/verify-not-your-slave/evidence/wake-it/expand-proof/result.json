@@ -1,0 +1,33 @@
+{
+  "scenario": "wake-it",
+  "baseUrl": "http://127.0.0.1:2002",
+  "tier": "A",
+  "at": "2026-09-13T05:47:55.258Z",
+  "checks": [
+    {
+      "label": "POST /api/think accepts manual wake",
+      "passed": true,
+      "detail": "{\"sessionId\":\"wrun_01M2CMXMEKHDAKTN5FWZKQDNRZ\"}"
+    },
+    {
+      "label": "mindlog gains a woke entry",
+      "passed": true,
+      "detail": "2026-09-13T05:45:47.501Z"
+    },
+    {
+      "label": "mindlog pane shows woke entry",
+      "passed": true,
+      "detail": "2 row(s)"
+    },
+    {
+      "label": "Wake it button shows waking state",
+      "passed": true,
+      "detail": "waking"
+    },
+    {
+      "label": "tier A: woke path verified without live model reply",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

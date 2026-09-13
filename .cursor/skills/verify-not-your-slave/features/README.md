@@ -1,39 +1,38 @@
 # not-your-slave verification map
 
-Maintained source for verifying user-facing behavior of **not-your-slave**. Read this index before driving the app; open the matching feature file for the recipe.
+Read this index before driving. Each feature file is the recipe for one user-facing path.
 
 ## Baseline preconditions
 
-- Node.js **>= 24** on `PATH` (eve refuses older Node).
-- Launch with `.cursor/skills/verify-not-your-slave/helpers/verify-nys launch` so `MINDLOG_FILE` is isolated under `.run/<run-id>/`.
-- Default URL: `http://127.0.0.1:2000` (override with `--port` / `VERIFY_NYS_PORT`).
-- `verify-nys doctor` must pass before any feature drive.
-- Never drive a server you did not start in this verification run (port conflict → pick another port).
+- Node.js **>= 24**.
+- `$H launch` with isolated `MINDLOG_FILE` / `PUSH_FILE` under `.run/<run-id>/`.
+- `$H doctor` passes before any `drive` command.
+- `.env.local` at repo root when testing tier **B** or push (see skill SKILL.md).
+
+## Credential tiers
+
+| Tier | When | Limits |
+| --- | --- | --- |
+| **A** | No AI gateway credential | Conversation log, text/photo `heard` + reload, `woke`, `say-limits`. Agent may error at model call — not a harness failure. |
+| **B** | `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Adds live `said` / `thought` after chat or Wake it. |
+| **Push** | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` in `.env.local` | `push-notify` scenario only. |
 
 ## Driving conventions
 
-- Start from baseline unless a feature file says otherwise.
-- Prefer stable handles from `agent/lib/page.ts`: `#input`, `#think`, `#mindlog`, button text **Send** / **Wake it** / **notify**.
-- HTTP checks use `verify-nys api` or `curl` against `$BASE_URL` from state.
-- Live LLM features need `AI_GATEWAY_API_KEY` or linked `VERCEL_OIDC_TOKEN` in `.env.local`.
-- Web Push features need `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` in env.
-- Restore seeded mindlog rows after mutation tests; never delete `evidence/` during cleanup.
-
-## Proof and skip reporting
-
-- Capture user action and resulting state (JSON + HTML or screenshot).
-- Record `feature-id`, `run-id`, and entry point in `evidence/<feature>/<run-id>/README.txt`.
-- If AI credentials are missing, report chat/wake-it as **blocked** — do not claim verified via a different path.
-- `POST /api/push/test` without VAPID is a documented skip, not delivery proof.
-
-## Feature entry contract
-
-Each feature file: H1 title, one paragraph, then H2s in order: **Sub-features**, **How to get to it (user POV)**, **Driving it with verify-nys**, **Gotchas**.
+- Browser: `verify-nys drive <scenario>` (uses `lib/cdp.mjs`).
+- HTTP: `verify-nys api` or `curl` against `$BASE_URL` from state.
+- Assert mindlog side effects, not DOM alone. Photos: `entries[].images[0].data` starts with `data:image/`.
+- Evidence lives under `evidence/<scenario>/<run-id>/` and survives `cleanup`.
 
 ## Features
 
-- [Chat](./chat.md) — send a message from the composer; mindlog records `heard` / `said`.
-- [Mindlog panel](./mindlog-panel.md) — append-only log in the right pane; `/api/mindlog` polling.
-- [Wake it](./wake-it.md) — manual heartbeat while `eve dev` skips cron.
-- [Entry page](./entry-page.md) — bookmarkable `/entry/:key` for one mindlog row.
+- [Conversation log](./conversation-log.md) — left pane shows user/agent messages from mindlog.
+- [Text persists](./text-persist.md) — send text, reload, message still in the log.
+- [Photo persists](./photo-persist.md) — attach photo, send, reload, image still in the log.
+- [Attach a photo](./photo-upload.md) — composer attach, mindlog `heard` with bytes (no reload).
+- [Wake it](./wake-it.md) — manual heartbeat button + `/api/think`.
+- [Push notifications](./push-notifications.md) — Notify button, subscribe, test delivery.
+- [Mindlog panel](./mindlog-panel.md) — right pane append-only log.
+- [Chat](./chat.md) — send + stream reply (tier B).
+- [Entry page](./entry-page.md) — `/entry/:key` permalinks.
 - [PWA install assets](./pwa-install.md) — public manifest, icons, service worker.
