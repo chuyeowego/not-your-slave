@@ -36,11 +36,8 @@ export default defineSchedule({
   // every fire, and a new session means a new sandbox. Sending through the
   // home channel reuses the session that owns the wake address.
   async run({ to, waitUntil, appAuth }) {
-    // Queue, not eve's default "steer": a beat arriving mid-turn would cancel
-    // the turn it interrupts, so a heartbeat could cut off an answer to a
-    // human halfway through. A beat has no deadline - it waits for the turn to
-    // settle. The reverse still steers, which is what you want: a human
-    // message interrupting a heartbeat should take over.
-    waitUntil(to(home, {}).send(HEARTBEAT, { auth: appAuth, turnPolicy: "queue" }));
+    // Deliver through home.receive, which queues the TIMELINE send. turnPolicy
+    // on this hop is inert: eve applies queue/steer on from(address).send.
+    waitUntil(to(home, {}).send(HEARTBEAT, { auth: appAuth }));
   },
 });

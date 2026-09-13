@@ -27,7 +27,12 @@ const readJson = async (request: Request): Promise<unknown> => {
 };
 
 export default defineChannel({
-  receive: async ({ message, auth }, { from }) => from(TIMELINE).send(message, { auth }),
+  // Heartbeats are the only inbound through receive. Queue on this TIMELINE
+  // send, not on the outer to(home).send: eve applies turnPolicy here. A beat
+  // has no deadline, so it waits rather than steer-cancelling a human reply.
+  // /api/say still steers — a person interrupting a beat should take over.
+  receive: async ({ message, auth }, { from }) =>
+    from(TIMELINE).send(message, { auth, turnPolicy: "queue" }),
 
   routes: [
     GET("/", async (request) => {
