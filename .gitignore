@@ -10,3 +10,6 @@
 *.tsbuildinfo
 dist
 node_modules
+
+# Verification skill ephemeral run state (evidence/ is kept intentionally)
+.cursor/skills/verify-not-your-slave/.run/

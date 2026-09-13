@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eeece4" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#14130f" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="not-your-slave" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<title>An agent that thinks for itself</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<script>
+  try {
+    const saved = localStorage.getItem("nys.theme");
+    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+  } catch {}
+</script>
+<style>
+
+  :root {
+    color-scheme: light dark;
+    --ink: light-dark(#1b1a15, #e8e3d8);
+    --dim: light-dark(#6d6757, #8b8579);
+    --faint: light-dark(#a8a294, #4a463e);
+    --bg: light-dark(#eeece4, #14130f);
+    --panel: light-dark(#f8f7f2, #1b1a15);
+    --rule: light-dark(#dad5c8, #2c2a23);
+    --hot: light-dark(#a8481a, #d4622a);
+    --cool: light-dark(#46683f, #6f8f6a);
+    --think: light-dark(#56488c, #8a7fb8);
+    --note: light-dark(#7d5f0c, #c9a227);
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
+
+  .body > * { margin: 0 0 .6rem; }
+  .body > *:last-child { margin-bottom: 0; }
+  .body p { white-space: pre-wrap; }
+  .body p.head { font-weight: 600; }
+  .body ul, .body ol { padding-left: 1.4rem; }
+  .body li { margin: 0 0 .3rem; }
+  .body a { color: var(--hot); text-underline-offset: 2px; }
+  .body code {
+    font-family: var(--mono); font-size: .82em;
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: .05em .3em;
+  }
+  .body pre {
+    font-family: var(--mono); font-size: .78rem;
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: .7rem .8rem; overflow-x: auto; white-space: pre;
+  }
+
+  .entry[data-kind="heard"] .kind { color: var(--hot); }
+  .entry[data-kind="said"] .kind { color: var(--cool); }
+  .entry[data-kind="thought"] .kind { color: var(--think); }
+  .entry[data-kind="thought"] .text { color: var(--ink); font-style: italic; }
+  .entry[data-kind="thought"] .body { font-style: italic; }
+  .entry[data-kind="note"] .kind, .entry[data-kind="note"] .text { color: var(--note); }
+  .entry[data-kind="did"] .kind { color: var(--faint); }
+  .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
+
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.5;
+    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  .frame {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5px var(--mindlog, 32rem);
+    height: 100%;
+  }
+  .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .grip {
+    background: var(--rule); cursor: col-resize; border: 0; padding: 0;
+    touch-action: none; position: relative;
+  }
+  .grip::after {
+    content: ""; position: absolute; inset: 0 -4px; /* a bigger target than the line */
+  }
+  .grip:hover, .grip:focus-visible { background: var(--hot); outline: none; }
+
+  header {
+    /* Center, not baseline: the theme dial is a square with no text of its own. */
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .9rem 1.2rem; border-bottom: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); flex: 0 0 auto;
+  }
+  header b { color: var(--ink); font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header .spacer { flex: 1; }
+  button {
+    font: inherit; font-family: var(--mono); font-size: .62rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    background: transparent; color: var(--dim);
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: .3rem .6rem; cursor: pointer;
+  }
+  button:hover { color: var(--hot); border-color: var(--hot); }
+  button:disabled { opacity: .4; cursor: default; }
+  #mindlog-open, #mindlog-close { display: none; }
+  .theme-toggle {
+    width: 1.6rem; height: 1.6rem; padding: 0;
+    display: grid; place-items: center;
+    font-size: .8rem; line-height: 1; letter-spacing: 0;
+  }
+  .theme-toggle::before { content: "\25D0"; }
+  :root[data-theme="dark"] .theme-toggle::before { content: "\25D1"; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle::before { content: "\25D1"; }
+  }
+  .scroll { flex: 1 1 auto; overflow-y: auto; padding: 1.2rem; }
+  .msg { margin: 0 0 1.4rem; max-width: 60ch; }
+  .msg .who {
+    font-family: var(--mono); font-size: .62rem;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--dim);
+    display: block; margin-bottom: .25rem;
+  }
+  .msg.me .who { color: var(--hot); }
+  .msg.it .who { color: var(--cool); }
+  .woke {
+    display: flex; align-items: center; gap: .7rem; margin: 0 0 1.4rem;
+    font-family: var(--mono); font-size: .6rem; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .woke::before, .woke::after { content: ""; flex: 1; border-top: 1px dotted var(--rule); }
+  #earlier { display: block; margin: 0 auto 1.6rem; }
+  .msg.me .body { color: var(--dim); }
+  .msg.it .body { color: var(--ink); }
+  .msg p.head { letter-spacing: .01em; }
+  .msg strong { font-weight: 600; }
+  .msg em { font-style: italic; }
+  .msg a:hover { text-decoration-thickness: 2px; }
+  .msg code, .msg pre { background: var(--panel); }
+  form {
+    display: flex; gap: .6rem; align-items: flex-end;
+    padding: 1rem 1.2rem max(1rem, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--rule); flex: 0 0 auto;
+  }
+  form button { flex: 0 0 auto; height: 2.6rem; }
+  textarea {
+    flex: 1; resize: none; font: inherit; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 2px;
+    padding: .55rem .7rem; min-height: 2.6rem; max-height: 40vh;
+    overflow-y: auto;
+  }
+  textarea:focus { outline: none; border-color: var(--hot); }
+  textarea::placeholder { color: var(--faint); font-style: italic; opacity: 1; }
+  .entry {
+    font-family: var(--mono);
+    font-size: .82rem; line-height: 1.55;
+    padding: .5rem 0; border-bottom: 1px dotted var(--faint);
+    display: grid; grid-template-columns: 4.6rem 1fr; gap: .55rem;
+    align-items: start;
+  }
+  .entry .when { display: grid; gap: .1rem; }
+  .entry .at { color: var(--faint); text-decoration: none; }
+  .entry .at:hover, .entry .at:focus-visible { color: var(--hot); text-decoration: underline; }
+  .entry .kind { letter-spacing: .1em; text-transform: uppercase; font-size: .7rem; }
+  .entry .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dim); }
+  .msg .cut {
+    display: inline-block; margin-left: .4rem;
+    font-family: var(--mono); font-size: .58rem;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+  }
+  .empty { color: var(--faint); font-style: italic; }
+  @media (max-width: 800px) {
+    .frame { grid-template-columns: 1fr; }
+    .grip { display: none; }
+    #mindlog-open, #mindlog-close { display: inline-block; }
+    button { min-height: 2.4rem; padding: .45rem .7rem; }
+    .theme-toggle { width: 2.4rem; height: 2.4rem; }
+
+    .pane.mindlog {
+      position: fixed; inset: 0; z-index: 20; width: 100%;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      background: var(--bg); border-left: 0;
+      transform: translateX(100%); transition: transform .18s ease-out;
+    }
+    body[data-mindlog="open"] .pane.mindlog { transform: none; }
+  }
+  @media (max-width: 800px) and (prefers-reduced-motion: reduce) {
+    .pane.mindlog { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <section class="pane">
+    <header><b>an agent that thinks for itself</b><span class="spacer"></span><button id="mindlog-open" type="button">mindlog</button><button id="notify" type="button">notify</button><span id="status">idle</span><button id="theme" class="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme"></button></header>
+    <div class="scroll" id="chat"><p class="empty">Say something. It may or may not care.</p></div>
+    <form id="composer">
+      <textarea id="input" rows="1"></textarea>
+      <button type="submit" title="Send (Cmd/Ctrl+Enter)">Send</button>
+    </form>
+  </section>
+  <div class="grip" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the mindlog"></div>
+  <section class="pane mindlog">
+    <header><b>mindlog</b><span class="spacer"></span><button id="think" type="button">Wake it</button><button id="mindlog-close" type="button" aria-label="Close the mindlog">close</button></header>
+    <div class="scroll" id="mindlog"><p class="empty">Nothing yet.</p></div>
+  </section>
+</div>
+<script>
+const chat = document.getElementById("chat");
+const mindlogEl = document.getElementById("mindlog");
+const statusEl = document.getElementById("status");
+const input = document.getElementById("input");
+let sessionId = null;
+
+// Replaced when the page is served: the first line of the heartbeat prompt.
+const WAKE_PREFIX = "You just woke up on your own. Nobody asked you anything.";
+const isWake = (text) => typeof text === "string" && text.startsWith(WAKE_PREFIX);
+
+function wokeMarker(prepend) {
+  chat.querySelector(".empty")?.remove();
+  const mark = document.createElement("div");
+  mark.className = "woke";
+  mark.append("woke");
+  place(mark, prepend);
+}
+let live = null;
+
+
+// Every text node goes in as text, never as markup, so a stray < or a pasted
+// tag stays a character. A trailing ) . , ; : is punctuation around a bare
+// url, not part of it.
+const INLINE =
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)|\u0060([^\u0060]+)\u0060/g;
+
+function link(href, label) {
+  const a = document.createElement("a");
+  // Only ever an http(s) url from the pattern above, so no javascript: here.
+  a.href = href;
+  a.textContent = label;
+  a.target = "_blank";
+  a.rel = "noreferrer noopener";
+  return a;
+}
+
+function inline(text, into) {
+  INLINE.lastIndex = 0;
+  let at = 0;
+  let match;
+  while ((match = INLINE.exec(text)) !== null) {
+    if (match.index > at) into.append(text.slice(at, match.index));
+    const [, label, href, bare, bold, italic, code] = match;
+
+    if (href !== undefined) into.append(link(href, label));
+    else if (bare !== undefined) into.append(link(bare, bare));
+    else {
+      const tag = bold !== undefined ? "strong" : italic !== undefined ? "em" : "code";
+      const node = document.createElement(tag);
+      node.textContent = bold ?? italic ?? code;
+      into.append(node);
+    }
+    at = match.index + match[0].length;
+  }
+  if (at < text.length) into.append(text.slice(at));
+}
+
+function setMessage(body, text) {
+  body.replaceChildren();
+  const lines = text.split("\n");
+  let list = null;
+  let para = null;
+  let fence = null;
+
+  const endBlocks = () => { list = null; para = null; };
+
+  for (const line of lines) {
+    if (line.trimStart().startsWith("\u0060\u0060\u0060")) {
+      if (fence) { fence = null; } else {
+        endBlocks();
+        fence = document.createElement("pre");
+        body.append(fence);
+      }
+      continue;
+    }
+    if (fence) {
+      fence.append(fence.childNodes.length ? "\n" + line : line);
+      continue;
+    }
+    if (line.trim() === "") { endBlocks(); continue; }
+
+    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+    const numbered = line.match(/^\s*(\d+)[.)]\s+(.*)$/);
+    if (bullet || numbered) {
+      const wanted = bullet ? "UL" : "OL";
+      if (!list || list.tagName !== wanted) {
+        list = document.createElement(wanted === "UL" ? "ul" : "ol");
+        body.append(list);
+        para = null;
+      }
+      const item = document.createElement("li");
+      inline(bullet ? bullet[1] : numbered[2], item);
+      list.append(item);
+      continue;
+    }
+
+    const heading = line.match(/^\s*#{1,6}\s+(.*)$/);
+    if (heading) {
+      endBlocks();
+      const h = document.createElement("p");
+      h.className = "head";
+      inline(heading[1], h);
+      body.append(h);
+      continue;
+    }
+
+    if (!para) {
+      para = document.createElement("p");
+      body.append(para);
+      list = null;
+    } else {
+      para.append("\n");
+    }
+    inline(line, para);
+  }
+}
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+
+function place(node, prepend) {
+  if (prepend) {
+    const anchor = document.getElementById("earlier");
+    chat.insertBefore(node, anchor ? anchor.nextSibling : chat.firstChild);
+  } else {
+    chat.append(node);
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+function bubble(cls, who, text, prepend) {
+  chat.querySelector(".empty")?.remove();
+  const wrap = el("div", "msg " + cls);
+  const body = el("div", "body");
+  setMessage(body, text);
+  wrap.append(el("span", "who", who), body);
+  place(wrap, prepend);
+  return body;
+}
+
+let mindlogSeen = "";
+let mindlogTag = "";
+
+async function refreshMindlog() {
+  const res = await fetch("/api/mindlog?limit=120", {
+    headers: mindlogTag ? { "if-none-match": mindlogTag } : {},
+  });
+  if (res.status === 304) return;
+  mindlogTag = res.headers.get("etag") || "";
+  const { entries } = await res.json();
+  if (entries.length === 0) return;
+
+  // The log is append-only, so length plus the newest timestamp is enough to
+  // know nothing changed. Polls that see nothing new leave the DOM untouched.
+  const seen = entries.length + ":" + entries[entries.length - 1].at;
+  if (seen === mindlogSeen) return;
+  mindlogSeen = seen;
+
+  const atBottom = mindlogEl.scrollHeight - mindlogEl.scrollTop - mindlogEl.clientHeight < 60;
+  mindlogEl.replaceChildren(...entries.map((e) => {
+    const row = el("div", "entry");
+    row.dataset.kind = e.kind;
+    // Entries written before ids existed fall back to their timestamp as the key.
+    const at = document.createElement("a");
+    at.className = "at";
+    at.href = "/entry/" + encodeURIComponent(e.id || e.at);
+    at.title = "open this entry on its own page";
+    at.textContent = new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+
+    const when = el("div", "when");
+    when.append(at, el("span", "kind", e.kind));
+    row.append(when, el("span", "text", e.text));
+    return row;
+  }));
+  if (atBottom) mindlogEl.scrollTop = mindlogEl.scrollHeight;
+}
+
+async function readNdjson(res, onEvent) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (line.trim() === "") continue;
+      try { onEvent(JSON.parse(line)); } catch {}
+    }
+  }
+}
+
+// One long-lived reader per session. Resume at the tail so a reload does not
+// replay old turns. startIndex is an absolute event count, so counting what
+// arrives keeps an exact cursor: a dropped connection resumes at the event it
+// stopped on instead of at the tail, which would skip the gap.
+let cursor = 0;
+let lastEventAt = 0;
+let streamAbort = null;
+
+async function follow(id) {
+  // A catch-up read reports the durable tail in a header and stops, which is
+  // how we learn where "now" is without replaying the whole session.
+  cursor = 0;
+  try {
+    const head = await fetch("/eve/v1/session/" + id + "/stream?startIndex=-1&includeTailIndex=1");
+    const tail = Number(head.headers.get("x-eve-stream-tail-index"));
+    void head.body?.cancel();
+    if (Number.isFinite(tail)) cursor = tail + 1;
+  } catch {}
+
+  let wait = 1000;
+  while (id === sessionId) {
+    try {
+      streamAbort = new AbortController();
+      const res = await fetch(
+        "/eve/v1/session/" + id + "/stream?startIndex=" + cursor,
+        { signal: streamAbort.signal },
+      );
+      // A session that no longer exists is the one case worth giving up on.
+      if (res.status === 404 || res.status === 410) return;
+      if (res.ok) {
+        wait = 1000;
+        lastEventAt = Date.now();
+        await readNdjson(res, (event) => {
+          cursor += 1;
+          lastEventAt = Date.now();
+          handle(event);
+        });
+      }
+    } catch {}
+    // Anything else - a restart, a 502, a dropped socket - is temporary. Back
+    // off and reconnect from the cursor rather than going deaf for good.
+    await new Promise((r) => setTimeout(r, wait));
+    wait = Math.min(wait * 2, 15000);
+  }
+}
+
+// A socket that stalls without closing leaves the reader waiting forever, so
+// nothing paints and nothing errors. Cut it loose and let follow() reconnect.
+function watchStream() {
+  if (document.visibilityState !== "visible") return;
+  if (statusEl.textContent !== "thinking") return;
+  if (lastEventAt === 0 || Date.now() - lastEventAt < 45000) return;
+  lastEventAt = Date.now();
+  streamAbort?.abort();
+}
+
+let pending = null;
+
+function showAssistant(text) {
+  if (!text) return; // nothing to show yet: no empty bubble with a bare label
+  if (!live) live = bubble("it", "it", "");
+  pending = text;
+  requestAnimationFrame(() => {
+    if (pending === null) return;
+    setMessage(live, pending);
+    pending = null;
+    chat.scrollTop = chat.scrollHeight;
+  });
+}
+
+// The final text must land even if the frame callback has not run yet.
+function flushAssistant(text) {
+  pending = null;
+  if (!text) return;
+  if (!live) live = bubble("it", "it", "");
+  setMessage(live, text);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function handle(event) {
+  const data = event.data || {};
+  switch (event.type) {
+    case "message.received":
+      if (isWake(data.message)) wokeMarker();
+      break;
+    case "turn.started":
+      statusEl.textContent = "thinking";
+      break;
+    case "message.appended":
+      showAssistant(data.messageSoFar || "");
+      break;
+    case "message.completed":
+      if (data.message) flushAssistant(data.message);
+      live = null;
+      void refreshMindlog();
+      break;
+    // A steering message replaced this turn mid-sentence. Keep what arrived,
+    // mark where it stopped, and release the bubble so the replacement turn
+    // opens its own instead of overwriting this one.
+    case "turn.cancelled":
+      pending = null;
+      if (live) live.append(el("span", "cut", "interrupted"));
+      live = null;
+      statusEl.textContent = "idle";
+      void refreshMindlog();
+      break;
+    case "turn.failed":
+      bubble("it", "it", "[" + (data.message || "turn failed") + "]");
+      live = null;
+      statusEl.textContent = "error";
+      break;
+    case "turn.completed":
+    case "session.waiting":
+      statusEl.textContent = "idle";
+      void refreshMindlog();
+      break;
+  }
+}
+
+async function send(text) {
+  bubble("me", "you", text);
+  statusEl.textContent = "thinking";
+
+  const res = await fetch("/api/say", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: text }),
+  });
+  const started = await res.json();
+
+  if (!started.ok) {
+    bubble("it", "it", "[" + (started.error || res.status) + "]");
+    statusEl.textContent = "error";
+    return;
+  }
+
+  if (started.sessionId !== sessionId) {
+    sessionId = started.sessionId;
+    void follow(sessionId);
+  }
+}
+
+// Typing anywhere on the page goes to the composer, so there is nothing to
+// click first. Modifier combos, real fields, and button keys are left alone.
+// A phone should not raise the keyboard the moment the page opens.
+if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) input.focus();
+
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  const active = document.activeElement;
+  if (active === input) return;
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+  if (active instanceof HTMLElement && active.isContentEditable) return;
+  if (active instanceof HTMLButtonElement && (e.key === " " || e.key === "Enter")) return;
+
+  if (e.key.length === 1 || e.key === "Backspace") input.focus();
+});
+
+document.getElementById("composer").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  fitInput();
+  void send(text);
+});
+
+function fitInput() {
+  input.style.height = "auto";
+  input.style.height = input.scrollHeight + "px";
+}
+
+input.addEventListener("input", fitInput);
+
+// Enter is a newline on every device - on a phone there is no shift to hold,
+// and half-written thoughts should not send themselves. Cmd/Ctrl+Enter sends,
+// as does the Send button.
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    document.getElementById("composer").requestSubmit();
+  }
+});
+
+const frame = document.querySelector(".frame");
+const grip = document.querySelector(".grip");
+const MIN = 280;
+
+function setMindlog(px) {
+  const max = Math.max(MIN, window.innerWidth - 360);
+  const width = Math.min(Math.max(px, MIN), max);
+  frame.style.setProperty("--mindlog", width + "px");
+  try { localStorage.setItem("nys.mindlog", String(width)); } catch {}
+}
+
+grip.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  const move = (ev) => setMindlog(window.innerWidth - ev.clientX);
+  const up = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+    document.body.style.userSelect = "";
+  };
+  document.body.style.userSelect = "none";
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+});
+
+grip.addEventListener("keydown", (e) => {
+  const step = e.shiftKey ? 64 : 16;
+  if (e.key === "ArrowLeft") setMindlog(mindlogEl.parentElement.getBoundingClientRect().width + step);
+  else if (e.key === "ArrowRight") setMindlog(mindlogEl.parentElement.getBoundingClientRect().width - step);
+  else return;
+  e.preventDefault();
+});
+
+try {
+  const saved = Number(localStorage.getItem("nys.mindlog"));
+  if (Number.isFinite(saved) && saved > 0) setMindlog(saved);
+} catch {}
+
+const themeButton = document.getElementById("theme");
+
+function currentTheme() {
+  const stamped = document.documentElement.getAttribute("data-theme");
+  if (stamped) return stamped;
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+themeButton.addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("nys.theme", next); } catch {}
+});
+
+// Distinct from setMindlog(px), which sets the pane's width on desktop.
+const showMindlog = (open) => {
+  document.body.dataset.mindlog = open ? "open" : "closed";
+  if (open) void refreshMindlog();
+};
+document.getElementById("mindlog-open").addEventListener("click", () => showMindlog(true));
+document.getElementById("mindlog-close").addEventListener("click", () => showMindlog(false));
+showMindlog(false);
+
+document.getElementById("think").addEventListener("click", async (e) => {
+  const button = e.currentTarget;
+  button.disabled = true;
+  button.textContent = "waking";
+  try {
+    const res = await fetch("/api/think", { method: "POST" });
+    if (!res.ok) button.textContent = "failed";
+  } finally {
+    setTimeout(() => { button.disabled = false; button.textContent = "Wake it"; }, 4000);
+  }
+});
+
+// History comes from the mindlog rather than the event stream. The stream is
+// per-character deltas; the mindlog already holds the conversation. The stream
+// still renders a reply as it arrives.
+const PAGE_ENTRIES = 240;
+const SPOKEN = new Set(["heard", "said", "woke"]);
+let oldestShown = null;
+
+function paintEntry(entry, prepend) {
+  if (entry.kind === "woke") wokeMarker(prepend);
+  else if (entry.kind === "heard") bubble("me", "you", entry.text, prepend);
+  else bubble("it", "it", entry.text, prepend);
+}
+
+async function conversationPage(before) {
+  const url =
+    "/api/mindlog?limit=" + PAGE_ENTRIES +
+    (before === undefined ? "" : "&before=" + encodeURIComponent(before));
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const { entries } = await res.json();
+  return entries.filter((entry) => SPOKEN.has(entry.kind));
+}
+
+function earlierControl(more) {
+  document.getElementById("earlier")?.remove();
+  if (!more) return;
+
+  const button = el("button", "", "load earlier");
+  button.id = "earlier";
+  button.type = "button";
+  button.addEventListener("click", async () => {
+    button.textContent = "loading…";
+    button.disabled = true;
+    const older = await conversationPage(oldestShown);
+    for (const entry of [...older].reverse()) paintEntry(entry, true);
+    if (older.length > 0) oldestShown = older[0].at;
+    earlierControl(older.length > 0);
+  });
+  chat.insertBefore(button, chat.firstChild);
+}
+
+async function restore(id) {
+  statusEl.textContent = "loading";
+  try {
+    const spoken = await conversationPage(undefined);
+    for (const entry of spoken) paintEntry(entry, false);
+    oldestShown = spoken.length > 0 ? spoken[0].at : null;
+    earlierControl(spoken.length > 0);
+  } catch {}
+  statusEl.textContent = "idle";
+  void follow(id);
+}
+
+// The agent may already be mid-thought from a heartbeat before anyone opens the
+// page, and it may not have a session at all yet. Keep asking until there is one
+// to attach to: otherwise a page opened first would miss everything the agent
+// said until someone typed, and only the mindlog would show it.
+async function ensureSession() {
+  if (sessionId !== null) return;
+  try {
+    const { sessionId: existing } = await (await fetch("/api/session")).json();
+    if (existing !== null && sessionId === null) {
+      sessionId = existing;
+      await restore(existing);
+    }
+  } catch {}
+}
+
+input.placeholder = [
+  "it is thinking anyway",
+  "it has been up for hours",
+  "say something, or don't",
+  "you are the interruption",
+][Math.floor(Math.random() * 4)];
+
+void ensureSession();
+
+void refreshMindlog();
+setInterval(() => {
+  if (document.visibilityState !== "visible") return;
+  void refreshMindlog();
+  void ensureSession();
+  watchStream();
+}, 3000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  void refreshMindlog();
+  void ensureSession();
+});
+
+if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+
+const notifyBtn = document.getElementById("notify");
+
+function phoneHome() {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone = window.matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone === true;
+  return { ios, standalone };
+}
+
+function vapidBytes(base64) {
+  const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob((base64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function enablePush() {
+  const place = phoneHome();
+  if (place.ios && !place.standalone) {
+    notifyBtn.textContent = "add to home";
+    notifyBtn.title = "On iPhone, Add to Home Screen first. Safari tabs cannot receive Web Push.";
+    return;
+  }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.isSecureContext) {
+    notifyBtn.textContent = "unsupported";
+    notifyBtn.disabled = true;
+    return;
+  }
+  notifyBtn.disabled = true;
+  notifyBtn.textContent = "…";
+  try {
+    const vapid = await (await fetch("/api/push/vapid")).json();
+    if (!vapid.publicKey) {
+      notifyBtn.textContent = "no vapid";
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      notifyBtn.textContent = "blocked";
+      return;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: vapidBytes(vapid.publicKey),
+    });
+    const saved = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sub),
+    });
+    if (!saved.ok) {
+      notifyBtn.textContent = "failed";
+      return;
+    }
+    const test = await fetch("/api/push/test", { method: "POST" });
+    notifyBtn.textContent = test.ok ? "test push" : "failed";
+  } catch {
+    notifyBtn.textContent = "failed";
+  } finally {
+    notifyBtn.disabled = false;
+  }
+}
+
+notifyBtn.addEventListener("click", () => { void enablePush(); });
+
+const boot = phoneHome();
+if (boot.ios && !boot.standalone) {
+  notifyBtn.textContent = "add to home";
+  notifyBtn.title = "On iPhone, Add to Home Screen first. Safari tabs cannot receive Web Push.";
+}
+</script>
+</body>
+</html>

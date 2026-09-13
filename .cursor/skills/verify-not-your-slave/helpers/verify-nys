@@ -1,0 +1,312 @@
+#!/usr/bin/env bash
+# Verification harness for not-your-slave (eve agent web UI + HTTP API).
+set -euo pipefail
+
+SKILL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$SKILL_ROOT/../../.." && pwd)"
+STATE_DIR="${VERIFY_NYS_STATE_DIR:-$SKILL_ROOT/.run}"
+EVIDENCE_ROOT="$SKILL_ROOT/evidence"
+
+usage() {
+  cat <<'EOF'
+Usage: verify-nys <command> [args]
+
+Commands:
+  launch [--port N] [--run-id ID]   Start eve dev with isolated mindlog; write state file
+  doctor                            Read-only health check for the launched instance
+  api <METHOD> <path> [json-body]   Call the running instance (curl wrapper)
+  seed-note <text>                  Append a mindlog note (verification scaffolding)
+  capture <feature-id> <label>      Save API response body to evidence/<feature>/<run-id>/
+  cleanup                           Stop the instance from state; keep evidence
+  print-state                       Print active run variables
+
+Environment:
+  VERIFY_NYS_PORT        Override default port (2000)
+  VERIFY_NYS_RUN_ID      Run identifier (default: timestamp)
+  VERIFY_NYS_STATE_DIR   State directory (default: .cursor/skills/verify-not-your-slave/.run)
+EOF
+}
+
+require_state() {
+  if [[ ! -f "$STATE_FILE" ]]; then
+    echo "verify-nys: no state file at $STATE_FILE (run launch first)" >&2
+    exit 1
+  fi
+  # shellcheck disable=SC1090
+  source "$STATE_FILE"
+}
+
+ensure_node24() {
+  if command -v node >/dev/null 2>&1 && node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'; then
+    return 0
+  fi
+  if [[ -f "$HOME/.nvm/nvm.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$HOME/.nvm/nvm.sh"
+    nvm install 24 >/dev/null 2>&1 || true
+    nvm use 24 >/dev/null 2>&1 || true
+  fi
+  local nvm_node
+  nvm_node="$(ls -d "$HOME"/.nvm/versions/node/v24.* 2>/dev/null | sort -V | tail -1)/bin"
+  if [[ -x "$nvm_node/node" ]]; then
+    export PATH="$nvm_node:$PATH"
+  fi
+  if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'; then
+    echo "verify-nys: Node.js >= 24 required (eve dev). Found: $(node --version 2>/dev/null || echo missing)" >&2
+    exit 1
+  fi
+}
+
+wait_ready() {
+  local url="$1"
+  local tries=60
+  while (( tries > 0 )); do
+    if curl -fsS -o /dev/null "$url/"; then
+      return 0
+    fi
+    sleep 0.5
+    tries=$((tries - 1))
+  done
+  echo "verify-nys: server did not become ready at $url" >&2
+  return 1
+}
+
+cmd_launch() {
+  local port="${VERIFY_NYS_PORT:-2000}"
+  local run_id="${VERIFY_NYS_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --port) port="$2"; shift 2 ;;
+      --run-id) run_id="$2"; shift 2 ;;
+      *) echo "verify-nys launch: unknown arg $1" >&2; exit 1 ;;
+    esac
+  done
+
+  ensure_node24
+  mkdir -p "$STATE_DIR/$run_id"
+  STATE_FILE="$STATE_DIR/$run_id/state.env"
+  export STATE_FILE
+
+  local data_dir="$STATE_DIR/$run_id/data"
+  mkdir -p "$data_dir"
+  local mindlog_file="$data_dir/mindlog.jsonl"
+  touch "$mindlog_file"
+
+  local log_file="$STATE_DIR/$run_id/dev.log"
+  (
+    cd "$REPO_ROOT"
+    export MINDLOG_FILE="$mindlog_file"
+    export PATH="$(dirname "$(command -v node)"):$PATH"
+    npm run dev -- --port "$port" --no-ui
+  ) >"$log_file" 2>&1 &
+  local pid=$!
+
+  local base="http://127.0.0.1:$port"
+  if ! wait_ready "$base"; then
+    kill "$pid" 2>/dev/null || true
+    echo "verify-nys: launch failed; see $log_file" >&2
+    tail -20 "$log_file" >&2 || true
+    exit 1
+  fi
+
+  cat >"$STATE_FILE" <<EOF
+RUN_ID=$run_id
+PID=$pid
+PORT=$port
+BASE_URL=$base
+MINDLOG_FILE=$mindlog_file
+LOG_FILE=$log_file
+REPO_ROOT=$REPO_ROOT
+EVIDENCE_DIR=$EVIDENCE_ROOT
+STATE_FILE=$STATE_FILE
+NODE_VERSION=$(node --version)
+PACKAGE_VERSION=$(node -p "require('$REPO_ROOT/package.json').version")
+EOF
+
+  echo "verify-nys: launched pid=$pid port=$port run_id=$run_id"
+  echo "verify-nys: state $STATE_FILE"
+}
+
+cmd_doctor() {
+  # Use latest run if STATE_FILE unset
+  if [[ -z "${STATE_FILE:-}" ]]; then
+    local latest
+    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+    if [[ -z "$latest" ]]; then
+      echo "verify-nys doctor: FAIL — no launch state under $STATE_DIR" >&2
+      exit 1
+    fi
+    STATE_FILE="$STATE_DIR/$latest/state.env"
+  fi
+  require_state
+
+  local ok=1
+  echo "verify-nys doctor: run_id=$RUN_ID port=$PORT node=$NODE_VERSION pkg=$PACKAGE_VERSION"
+
+  if kill -0 "$PID" 2>/dev/null; then
+    echo "  process: ok (pid $PID)"
+  else
+    echo "  process: FAIL (pid $PID not running)" >&2
+    ok=0
+  fi
+
+  if curl -fsS -o /dev/null "$BASE_URL/"; then
+    echo "  GET /: ok"
+  else
+    echo "  GET /: FAIL" >&2
+    ok=0
+  fi
+
+  local session_json
+  session_json="$(curl -fsS "$BASE_URL/api/session" || true)"
+  if [[ "$session_json" == *"sessionId"* ]]; then
+    echo "  GET /api/session: ok ($session_json)"
+  else
+    echo "  GET /api/session: FAIL" >&2
+    ok=0
+  fi
+
+  if [[ -f "$MINDLOG_FILE" ]]; then
+    echo "  mindlog: ok ($MINDLOG_FILE)"
+  else
+    echo "  mindlog: FAIL (missing $MINDLOG_FILE)" >&2
+    ok=0
+  fi
+
+  if (( ok == 0 )); then
+    exit 1
+  fi
+  echo "verify-nys doctor: PASS"
+}
+
+cmd_api() {
+  if [[ -z "${STATE_FILE:-}" ]]; then
+    local latest
+    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+    STATE_FILE="$STATE_DIR/$latest/state.env"
+  fi
+  require_state
+
+  local method="${1:?METHOD}"
+  local path="${2:?PATH}"
+  shift 2
+  local body="${1:-}"
+
+  local url="$BASE_URL$path"
+  if [[ -n "$body" ]]; then
+    curl -fsS -X "$method" "$url" \
+      -H 'content-type: application/json' \
+      -d "$body"
+  else
+    curl -fsS -X "$method" "$url"
+  fi
+}
+
+cmd_seed_note() {
+  if [[ -z "${STATE_FILE:-}" ]]; then
+    local latest
+    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+    STATE_FILE="$STATE_DIR/$latest/state.env"
+  fi
+  require_state
+
+  local text="${1:?note text}"
+  local id
+  id="$(node -e "console.log(require('node:crypto').randomBytes(6).toString('hex'))")"
+  local at
+  at="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+  printf '{"id":"%s","at":"%s","kind":"note","text":"%s"}\n' "$id" "$at" "$text" >>"$MINDLOG_FILE"
+  echo "$id"
+}
+
+cmd_capture() {
+  if [[ -z "${STATE_FILE:-}" ]]; then
+    local latest
+    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+    STATE_FILE="$STATE_DIR/$latest/state.env"
+  fi
+  require_state
+
+  local feature="${1:?feature-id}"
+  local label="${2:?label}"
+  local dest="$EVIDENCE_DIR/$feature/$RUN_ID"
+  mkdir -p "$dest"
+
+  local mindlog_json
+  mindlog_json="$(cmd_api GET /api/mindlog)"
+  local outfile="$dest/${label}.json"
+  printf '%s\n' "$mindlog_json" >"$outfile"
+
+  local home_html
+  home_html="$(curl -fsS "$BASE_URL/")"
+  local htmlfile="$dest/${label}-home.html"
+  printf '%s\n' "$home_html" >"$htmlfile"
+
+  cat >"$dest/README.txt" <<EOF
+feature=$feature
+run_id=$RUN_ID
+captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+base_url=$BASE_URL
+mindlog_file=$MINDLOG_FILE
+artifacts:
+  $outfile
+  $htmlfile
+EOF
+  echo "$dest"
+}
+
+cmd_cleanup() {
+  if [[ -z "${STATE_FILE:-}" ]]; then
+    local latest
+    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+    if [[ -z "$latest" ]]; then
+      echo "verify-nys cleanup: nothing to clean"
+      return 0
+    fi
+    STATE_FILE="$STATE_DIR/$latest/state.env"
+  fi
+  require_state
+
+  if kill -0 "$PID" 2>/dev/null; then
+    kill "$PID" 2>/dev/null || true
+    sleep 0.5
+    if kill -0 "$PID" 2>/dev/null; then
+      kill -9 "$PID" 2>/dev/null || true
+    fi
+    echo "verify-nys cleanup: stopped pid $PID"
+  else
+    echo "verify-nys cleanup: pid $PID already stopped"
+  fi
+
+  rm -rf "$STATE_DIR/$RUN_ID"
+  echo "verify-nys cleanup: removed run state (evidence kept under $EVIDENCE_DIR)"
+}
+
+cmd_print_state() {
+  if [[ -z "${STATE_FILE:-}" ]]; then
+    local latest
+    latest="$(ls -1 "$STATE_DIR" 2>/dev/null | sort | tail -1 || true)"
+    [[ -n "$latest" ]] && STATE_FILE="$STATE_DIR/$latest/state.env"
+  fi
+  require_state
+  cat "$STATE_FILE"
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    launch) cmd_launch "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    api) cmd_api "$@" ;;
+    seed-note) cmd_seed_note "$@" ;;
+    capture) cmd_capture "$@" ;;
+    cleanup) cmd_cleanup "$@" ;;
+    print-state) cmd_print_state "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "verify-nys: unknown command $cmd" >&2; usage; exit 1 ;;
+  esac
+}
+
+main "$@"
