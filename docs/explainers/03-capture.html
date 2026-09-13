@@ -159,6 +159,11 @@ th { font-family: "JetBrains Mono", monospace; font-size: .66rem; letter-spacing
   <a href="https://github.com/chuyeowego/not-your-slave">chuyeowego/not-your-slave</a>
 </p>
 
+<div class="callout aside">
+  <span class="label">After these six commits</span>
+  <p>This page walks commit <code>4be5d7e</code>. The running tree is one shared TIMELINE session; capture distinguishes <code>woke</code> from <code>heard</code> via <code>channel.kind === "schedule"</code> or the exact HEARTBEAT text in <code>agent/hooks/mindlog-capture.ts</code> — not via <code>sessionId</code>.</p>
+</div>
+
 <nav class="toc">
   <div class="kicker">On this page</div>
   <ol>
@@ -288,7 +293,7 @@ export default defineHook({
 
 <h4>Every entry carries <code>ctx.session.id</code></h4>
 
-<p>A cheap field with two later payoffs. It makes it possible to tell a chat turn from a heartbeat turn in the log, and in commit 6 it becomes the evidence that two cron fires ran in two different sessions - the measurement that exposes the persistence gap.</p>
+<p>A cheap field with a later payoff: in commit 6 it becomes the evidence that two cron fires ran in two different sessions - the measurement that exposes the persistence gap.</p>
 
 <h4><code>message.completed</code> can fire more than once</h4>
 
