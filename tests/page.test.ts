@@ -33,6 +33,8 @@ describe("PAGE", () => {
     expect(PAGE).toContain("res.json().catch");
     expect(PAGE).toContain("entry.images");
     expect(PAGE).toContain(`const SAY = ${JSON.stringify(SAY)}`);
+    expect(PAGE).not.toContain("mindlogSeen");
+    expect(PAGE.split(".msg .pics, .entry .pics")).toHaveLength(2);
   });
 
   test("inlined scripts parse once the server placeholder is filled", () => {

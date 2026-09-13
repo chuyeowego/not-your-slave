@@ -1,14 +1,13 @@
 import { defineAgent } from "eve";
 import { gateway, wrapLanguageModel, type LanguageModelMiddleware } from "ai";
 
+import { SAY } from "./lib/say.ts";
+
 // A provider only reports usage once a call finishes, so a per-session
 // ceiling cannot stop a runaway mid-generation. Capping every call can.
 const CAP = 4096;
 
-/** Caption-less home sends use this text part so the provider does not drop the turn. */
-const IMAGE_ONLY_TEXT = "(image)";
-
-export const IMAGE_TURN_REMINDER =
+const IMAGE_TURN_REMINDER =
   "You can already see this photograph. Read what is in the picture — text, numbers, layout, faces, objects. Do not run opencv, tesseract, imagemagick, python, or bash against /workspace/attachments to inspect it; those copies exist for the runtime, not for you to parse.";
 
 type ContentPart = {
@@ -30,7 +29,7 @@ const isImagePart = (part: unknown): boolean => {
 
 const contentHasImage = (content: unknown): boolean => Array.isArray(content) && content.some(isImagePart);
 
-export const promptHasImage = (prompt: unknown): boolean => {
+const promptHasImage = (prompt: unknown): boolean => {
   if (!Array.isArray(prompt)) return false;
   return prompt.some((message) => isRecord(message) && contentHasImage(message.content));
 };
@@ -65,11 +64,11 @@ const withVisionCue = (content: unknown[]): unknown[] => {
       (part) =>
         isRecord(part) &&
         (part as ContentPart).type === "text" &&
-        (part as ContentPart).text === IMAGE_ONLY_TEXT,
+        (part as ContentPart).text === SAY.untitled,
     );
   if (onlyStub) {
     return parts.map((part) =>
-      isRecord(part) && (part as ContentPart).type === "text" && (part as ContentPart).text === IMAGE_ONLY_TEXT
+      isRecord(part) && (part as ContentPart).type === "text" && (part as ContentPart).text === SAY.untitled
         ? { ...part, text: IMAGE_TURN_REMINDER }
         : part,
     );
@@ -77,7 +76,7 @@ const withVisionCue = (content: unknown[]): unknown[] => {
   return [{ type: "text", text: IMAGE_TURN_REMINDER }, ...parts];
 };
 
-export const promptForVision = (prompt: unknown): unknown => {
+const promptForVision = (prompt: unknown): unknown => {
   if (!Array.isArray(prompt) || !promptHasImage(prompt)) return prompt;
   return prompt.map((message) => {
     if (!isRecord(message) || message.role !== "user" || !Array.isArray(message.content)) return message;

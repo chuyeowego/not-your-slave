@@ -124,11 +124,6 @@ ${RENDERED}
     padding: 0 .28rem; line-height: 1.2; border: 0; background: var(--bg);
     color: var(--dim); font-size: .7rem; letter-spacing: 0;
   }
-  .msg .pics, .entry .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
-  .msg .pic, .entry .pic {
-    max-width: 12rem; max-height: 9rem; object-fit: cover; display: block;
-    border: 1px solid var(--rule); border-radius: 2px;
-  }
   .msg .pic-name {
     font-family: var(--mono); font-size: .58rem; letter-spacing: .08em;
     text-transform: uppercase; color: var(--faint);
@@ -282,7 +277,7 @@ function bubble(cls, who, text, prepend, blobs, images) {
   if (pics) wrap.append(pics);
   const body = el("div", "body");
   const caption =
-    ((blobs && blobs.length) || (images && images.length)) && parsed.caption === "(image)"
+    ((blobs && blobs.length) || (images && images.length)) && parsed.caption === SAY.untitled
       ? ""
       : parsed.caption;
   if (caption) setMessage(body, caption);
@@ -291,7 +286,6 @@ function bubble(cls, who, text, prepend, blobs, images) {
   return body;
 }
 
-let mindlogSeen = "";
 let mindlogTag = "";
 
 async function refreshMindlog() {
@@ -302,12 +296,6 @@ async function refreshMindlog() {
   mindlogTag = res.headers.get("etag") || "";
   const { entries } = await res.json();
   if (entries.length === 0) return;
-
-  // The log is append-only, so length plus the newest timestamp is enough to
-  // know nothing changed. Polls that see nothing new leave the DOM untouched.
-  const seen = entries.length + ":" + entries[entries.length - 1].at;
-  if (seen === mindlogSeen) return;
-  mindlogSeen = seen;
 
   const atBottom = mindlogEl.scrollHeight - mindlogEl.scrollTop - mindlogEl.clientHeight < 60;
   mindlogEl.replaceChildren(...entries.map((e) => {
@@ -326,7 +314,7 @@ async function refreshMindlog() {
     const pics = picStrip(null, e.images, []);
     if (pics) body.append(pics);
     const parsed = takeFiles(e.text);
-    const caption = pics && parsed.caption === "(image)" ? "" : pics ? parsed.caption : e.text;
+    const caption = pics && parsed.caption === SAY.untitled ? "" : pics ? parsed.caption : e.text;
     if (caption) body.append(caption);
     row.append(when, body);
     return row;

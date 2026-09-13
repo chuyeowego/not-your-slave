@@ -5,6 +5,7 @@ export const SAY = {
   maxImages: 4,
   maxBytes: 3 * 1024 * 1024,
   types: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+  untitled: "(image)",
 } as const;
 
 const ALLOWED_IMAGE_TYPES: ReadonlySet<string> = new Set(SAY.types);
@@ -118,7 +119,7 @@ async function fromForm(request: Request): Promise<SayResult> {
   const images: SayImage[] = [];
 
   for (const [key, value] of form.entries()) {
-    if (key !== "images" && key !== "image") continue;
+    if (key !== "images") continue;
     if (typeof value === "string") return { ok: false, error: "unsupported image type" };
     const bytes = new Uint8Array(await value.arrayBuffer());
     const parsed = imageFromBytes(bytes, value.name, value.type);
@@ -192,7 +193,7 @@ export function toUserContent(turn: SayTurn): string | UserContent {
   const parts: Exclude<UserContent, string> = [];
   // DeepSeek's vision examples always pair an image with text. A caption-less
   // send still needs a non-empty text part or the provider can drop the turn.
-  parts.push({ type: "text", text: turn.text.length > 0 ? turn.text : "(image)" });
+  parts.push({ type: "text", text: turn.text.length > 0 ? turn.text : SAY.untitled });
   for (const image of turn.images) {
     parts.push({
       type: "file",
