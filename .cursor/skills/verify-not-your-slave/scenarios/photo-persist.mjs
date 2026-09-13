@@ -38,6 +38,16 @@ export async function run(ctx) {
     );
     ctx.check("heard entry stores inline image bytes", heard?.images?.[0]?.data?.startsWith("data:image/"));
 
+    const sessionBefore = await page.evaluate(
+      `(async () => (await (await fetch("/api/session")).json()).sessionId)()`,
+    );
+    ctx.note("sessionIdBeforeReload", sessionBefore);
+    ctx.check(
+      "GET /api/session has id after send",
+      sessionBefore !== null && sessionBefore !== undefined,
+      sessionBefore ?? "null",
+    );
+
     await page.evaluate("location.reload()");
     await page.waitFor('!!document.getElementById("mindlog")', { label: "page after reload" });
 
@@ -52,9 +62,7 @@ export async function run(ctx) {
       panePics.ok ? `${panePics.value} image(s)` : panePics.detail,
     );
 
-    if (!ctx.hasAi()) {
-      ctx.blocked("conversation log restores photo after reload", ctx.needAi);
-    } else {
+    if (sessionBefore) {
       const chatPics = await page.waitForOptional('document.querySelectorAll("#chat .msg.me img.pic").length', {
         label: "photo in conversation log after reload",
         timeoutMs: 45000,

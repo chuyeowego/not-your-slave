@@ -18,8 +18,6 @@ Open `/`. Click **Attach** and pick an image (or paste one into the text box, or
 
 ## Driving it with verify-nys
 
-**Requires image upload product** ([PR #25](https://github.com/chuyeowego/not-your-slave/pull/25)) — scenarios fail against bare `main`.
-
 ```bash
 verify-nys drive send-photo
 verify-nys drive say-limits
