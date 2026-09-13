@@ -22,14 +22,15 @@ describe("home channel routes", () => {
     return (await import("#channels/home.ts")).default;
   }
 
-  test("receive forwards onto the shared timeline address", async () => {
+  test("receive queues onto the shared timeline address", async () => {
+    const { HEARTBEAT } = await import("#schedules/think.ts");
     const send = vi.fn().mockResolvedValue({ id: "ses_1" });
     const from = vi.fn().mockReturnValue({ send });
     const home = await channel();
     if (home.receive === undefined) throw new Error("home.receive missing");
-    await home.receive({ message: "hello", auth: null, target: {} }, { from } as never);
+    await home.receive({ message: HEARTBEAT, auth: null, target: {} }, { from } as never);
     expect(from).toHaveBeenCalledWith("timeline");
-    expect(send).toHaveBeenCalledWith("hello", { auth: null });
+    expect(send).toHaveBeenCalledWith(HEARTBEAT, { auth: null, turnPolicy: "queue" });
   });
 
   test("GET / fills the wake prefix and serves HTML", async () => {
