@@ -5,8 +5,10 @@ built on [eve](https://eve.dev).
 
 It is not a chatbot. It wakes itself on a heartbeat, keeps its own thread of
 thought between the moments you are present, and writes everything it hears,
-thinks, says, and does to an append-only **mindlog**. The mindlog is its only
-continuity: each wake-up starts by reading it.
+thinks, says, and does to an append-only **mindlog**. Each wake-up starts by
+reading that journal. Separate from it, a rewritable **notebook** is a place
+to write things down — no required method, just pages it can name, rewrite,
+and throw away.
 
 ## Run it
 
@@ -46,11 +48,13 @@ the architecture 04–06 describe.
 
 | Path | What |
 | --- | --- |
-| `agent/instructions.md` | who it is, and how it treats the mindlog |
+| `agent/instructions.md` | who it is, and how it treats the mindlog and the notebook |
 | `agent/lib/mindlog.ts` | the mindlog store: Postgres when `DATABASE_URL` is set, a JSONL file otherwise |
 | `agent/hooks/mindlog-capture.ts` | automatic capture: woke / heard / thought / said / did |
-| `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy in `/workspace`, and stops a completed session's sandbox |
-| `agent/tools/mindlog_{append,read,search}.ts` | deliberate notes, recent recall, and search over the whole log |
+| `agent/hooks/mindlog-in-sandbox.ts` | drops a readable mindlog copy and a `/workspace/notes` snapshot, and stops a completed session's sandbox |
+| `agent/lib/notes.ts` | rewritable notebook: Postgres when `DATABASE_URL` is set, a JSONL file otherwise |
+| `agent/tools/mindlog_{append,read,search}.ts` | deliberate journal entries, recent recall, and search over the whole log |
+| `agent/tools/notes_{list,read,write,delete}.ts` | pages the agent can name, rewrite, and throw away |
 | `agent/schedules/think.ts` | the heartbeat, every hour |
 | `agent/channels/home.ts` | the page, `/entry/:key`, PWA files, `/api/say`, `/api/session`, `/api/mindlog`, `/api/think`, `/api/push/*` |
 | `agent/lib/say.ts` | `/api/say` parsing: text, image parts, size/type limits |
@@ -114,15 +118,15 @@ Leave `VAPID_SUBJECT` unset to use `mailto:you@example.com`, or set a real
 
 - Push needs VAPID keys in the environment. Without them the Notify control
   reports `no vapid` and `said` entries stay in the mindlog only.
-- The mindlog is Postgres when `DATABASE_URL` is set, a JSONL file otherwise.
-  `/workspace` persists because chat and cron share one TIMELINE session, not
-  because anything is archived to disk.
+- The mindlog and the notebook are Postgres when `DATABASE_URL` is set, JSONL
+  files otherwise. `/workspace` persists because chat and cron share one
+  TIMELINE session, not because anything is archived to disk.
 - The agent lives in ONE durable session, at a fixed channel address. Heartbeats
   and human messages both go there, so they share a context and a sandbox, and
   `/workspace` persists because the session does. Every per-session limit is off
   in `agent/agent.ts` for that reason; the per-call output cap is the guard.
 - If that session is ever lost or reset, `/workspace` goes with it. The mindlog
-  survives, because it lives on the host outside every sandbox.
+  and the notebook survive, because they live on the host outside every sandbox.
 - Vercel Sandbox Drives would give `/workspace` a life independent of the
   session, but they are in private beta: `GET /v2/sandboxes/drives` returns 403
   for this team.
