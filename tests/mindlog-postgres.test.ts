@@ -8,10 +8,6 @@ describe("mindlog postgres store", () => {
 
   beforeAll(async () => {
     store = await LivePostgres.open();
-    // Proof this suite talked to a server, not the old tagged-template fake.
-    console.log(
-      `[mindlog-postgres] ${store.fingerprint.version} database=${store.fingerprint.database} host=${store.fingerprint.host} port=${store.fingerprint.port}`,
-    );
   });
 
   beforeEach(async () => {
