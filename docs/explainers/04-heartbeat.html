@@ -159,6 +159,11 @@ th { font-family: "JetBrains Mono", monospace; font-size: .66rem; letter-spacing
   <a href="https://github.com/chuyeowego/not-your-slave">chuyeowego/not-your-slave</a>
 </p>
 
+<div class="callout aside">
+  <span class="label">After these six commits</span>
+  <p>This page walks commit <code>24cb9f6</code>. The running tree is a handler schedule: <code>run</code> plus <code>to(home, {}).send(HEARTBEAT, …)</code> onto the shared TIMELINE session, hourly. Replies land under a <code>woke</code> mark and stay readable — not the markdown/task-mode discard this commit used.</p>
+</div>
+
 <nav class="toc">
   <div class="kicker">On this page</div>
   <ol>
@@ -206,10 +211,10 @@ th { font-family: "JetBrains Mono", monospace; font-size: .66rem; letter-spacing
       <div class="arrow"><b>&rarr;</b>same door</div>
       <div class="node hi"><span class="t">one agent</span><span class="s">reads its mindlog<br>thinks, acts, logs</span></div>
       <div class="arrow"><b>&larr;</b>same door</div>
-      <div class="node cold"><span class="t">the clock</span><span class="s">the heartbeat prompt<br>reply is discarded</span></div>
+      <div class="node cold"><span class="t">the clock</span><span class="s">the heartbeat prompt<br>this commit: reply discarded</span></div>
     </div>
   </div>
-  <figcaption>One agent, one memory, two callers. The only difference between them is whether anyone reads the answer.</figcaption>
+  <figcaption>One agent, one memory, two callers. In this commit, the clock's reply was discarded.</figcaption>
 </figure>
 
 <p>A day in the life, once the clock is wired up:</p>
@@ -263,7 +268,7 @@ export default defineSchedule({
   });
 },</pre>
 
-<p>Without this, the mindlog records the agent waking itself as <code>heard</code>, with the full prompt as the text - technically true, since the runtime really did deliver it as an inbound message, but it teaches the agent it has company when it is alone. A persistent agent reading its own history is the most credulous reader that history will ever have, so the log's job is to mean what it says. The <code>woke</code> entry stores the word "heartbeat" and nothing else; there is no value in twelve lines of boilerplate repeating in the log every quarter hour.</p>
+<p>Without this, the mindlog records the agent waking itself as <code>heard</code>, with the full prompt as the text - technically true, since the runtime really did deliver it as an inbound message, but it teaches the agent it has company when it is alone. A persistent agent reading its own history is the most credulous reader that history will ever have, so the log's job is to mean what it says. The <code>woke</code> entry stores the word "heartbeat" and nothing else; there is no value in twelve lines of boilerplate repeating in the log on every fire.</p>
 
 <div class="callout">
   <span class="label">Key concept: the log is training data for tomorrow's judgement</span>
@@ -276,7 +281,7 @@ export default defineSchedule({
 
 <h4>"Read your mindlog … to find out where you left off"</h4>
 
-<p>A fresh session starts with no history. Left to itself the model opens with a greeting or invents a task. Anchoring the turn on the log is what makes fifteen minutes of separate sessions read as one continuous mind.</p>
+<p>A fresh session starts with no history. Left to itself the model opens with a greeting or invents a task. Anchoring the turn on the log is what makes this commit's fifteen-minute separate sessions read as one continuous mind.</p>
 
 <h4>"One step, not ten"</h4>
 
@@ -284,15 +289,15 @@ export default defineSchedule({
 
 <h4>"An idle beat is a legitimate outcome"</h4>
 
-<p>Ask a model to produce a thought every fifteen minutes and it will always produce one, because that is what it was asked for. What you get is manufactured busywork - restated conclusions, plans about plans - which is precisely the behaviour the project is named against. Making silence explicitly acceptable is the only thing that makes it possible.</p>
+<p>Ask a model to produce a thought on every beat and it will always produce one, because that is what it was asked for. What you get is manufactured busywork - restated conclusions, plans about plans - which is precisely the behaviour the project is named against. Making silence explicitly acceptable is the only thing that makes it possible.</p>
 
 <h4>"Nobody is reading this turn's reply"</h4>
 
-<p>This is simply true: task mode discards the output. Not saying it produces an agent writing "Let me know if you'd like me to dig deeper" into the void, and worse, believing it has communicated something. Stating the constraint is also what prompted the honest line added to the instructions in this commit: a heartbeat has nobody listening, and the agent cannot start a conversation with a human - they come to it.</p>
+<p>True of this commit: task mode discarded the output. Not saying it produced an agent writing "Let me know if you'd like me to dig deeper" into the void, and worse, believing it had communicated something.</p>
 
-<h3>Why 15 minutes</h3>
+<h3>Why 15 minutes (this commit)</h3>
 
-<p>Cadence is a spend dial. At roughly 8k tokens in and 700 out per wake on <code>glm-5.3-flash</code>, a quarter-hourly heartbeat costs around 7 cents a day; a one-minute heartbeat costs about a dollar and produces far more log than any human will read. Fifteen minutes is slow enough to be cheap and quiet, fast enough that a thread left hanging gets picked up within the hour.</p>
+<p>Cadence is a spend dial. At roughly 8k tokens in and 700 out per wake on <code>glm-5.3-flash</code>, a quarter-hourly heartbeat cost around 7 cents a day; a one-minute heartbeat cost about a dollar and produced far more log than any human will read. Fifteen minutes was slow enough to be cheap and quiet, fast enough that a thread left hanging got picked up within the hour. The running tree fires hourly (<code>0 * * * *</code>).</p>
 
 <div class="callout aside">
   <span class="label">Verified, not assumed</span>
@@ -322,7 +327,7 @@ export default defineSchedule({
     <div class="fb"></div>
   </div>
 
-  <div class="q" data-answer="d" data-explain="Asked for a thought every fifteen minutes, a model will always produce one - restated conclusions, plans about plans. Making silence explicitly acceptable is what makes it available at all.">
+  <div class="q" data-answer="d" data-explain="Asked for a thought on every beat, a model will always produce one - restated conclusions, plans about plans. Making silence explicitly acceptable is what makes it available at all.">
     <span class="n">Question 3</span>
     <p class="ask">What does "an idle beat is a legitimate outcome" prevent?</p>
     <button class="opt" data-key="a">The session failing when no tool is called.</button>
