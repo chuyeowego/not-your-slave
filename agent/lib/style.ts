@@ -24,7 +24,6 @@ export const FONTS = String.raw`<link rel="preconnect" href="https://fonts.googl
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />`;
 
-// Both pages stamp a saved scheme on :root before the first paint.
 export const THEME_BOOTSTRAP = String.raw`<script>
   try {
     const saved = localStorage.getItem("nys.theme");
@@ -32,8 +31,6 @@ export const THEME_BOOTSTRAP = String.raw`<script>
   } catch {}
 </script>`;
 
-// Rendered-body typography and kind colours. Shared selectors already exist
-// on both documents; backgrounds and conversation/permalink extras stay local.
 export const RENDERED = String.raw`
   .body > * { margin: 0 0 .6rem; }
   .body > *:last-child { margin-bottom: 0; }
@@ -61,4 +58,10 @@ export const RENDERED = String.raw`
   .entry[data-kind="note"] .kind, .entry[data-kind="note"] .text { color: var(--note); }
   .entry[data-kind="did"] .kind { color: var(--faint); }
   .entry[data-kind="woke"] .kind, .entry[data-kind="woke"] .text { color: var(--think); }
+
+  .msg .pics, .entry .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
+  .msg .pic, .entry .pic {
+    max-width: 12rem; max-height: 9rem; object-fit: cover; display: block;
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
 `;

@@ -79,11 +79,6 @@ ${RENDERED}
     font-family: var(--mono); font-size: .62rem; letter-spacing: .1em;
     text-transform: uppercase; color: var(--dim); margin-bottom: .5rem;
   }
-  .entry .pics { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .5rem; }
-  .entry .pic {
-    max-width: 12rem; max-height: 9rem; object-fit: cover; display: block;
-    border: 1px solid var(--rule); border-radius: 2px;
-  }
   .entry .body { font-size: .95rem; overflow-wrap: anywhere; }
   .entry .body code, .entry .body pre { background: var(--bg); }
   a.at { color: inherit; text-decoration: none; }
