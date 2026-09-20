@@ -17,7 +17,7 @@ describe("parseSay", () => {
     if (parsed.ok) expect(toUserContent(parsed.value)).toBe("hello");
   });
 
-  test("rejects an empty JSON message the way /api/say used to", async () => {
+  test("rejects an empty JSON message", async () => {
     const parsed = await say({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message: "   " }),
@@ -68,6 +68,12 @@ describe("parseSay", () => {
   });
 
   test("caps count, size, and MIME type", async () => {
+    const many = new FormData();
+    for (let i = 0; i < SAY.maxImages + 1; i++) {
+      many.append("images", new File([png], `n${i}.png`, { type: "image/png" }));
+    }
+    expect(await say({ body: many })).toEqual({ ok: false, error: "too many images (max 4)" });
+
     const form = new FormData();
     form.append("images", new File([new Uint8Array(SAY.maxBytes + 1)], "big.png", { type: "image/png" }));
     expect(await say({ body: form })).toEqual({ ok: false, error: "image too large (max 3 MiB)" });

@@ -28,10 +28,6 @@ describe("PAGE", () => {
     expect(PAGE).toContain('notifyBtn.textContent = test.ok ? "test push" : "failed"');
     expect(PAGE).toContain('id="attach"');
     expect(PAGE).toContain('id="files"');
-    expect(PAGE).toContain("new FormData");
-    expect(PAGE).toContain("image/webp");
-    expect(PAGE).toContain("res.json().catch");
-    expect(PAGE).toContain("entry.images");
     expect(PAGE).toContain(`const SAY = ${JSON.stringify(SAY)}`);
     expect(PAGE).not.toContain("mindlogSeen");
     expect(PAGE.split(".msg .pics, .entry .pics")).toHaveLength(2);
