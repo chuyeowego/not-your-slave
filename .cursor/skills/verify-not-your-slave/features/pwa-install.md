@@ -15,18 +15,13 @@ Installable web app metadata: manifest, icons, and a service worker with push ha
 
 ## Driving it with verify-nys
 
-Preconditions:
+```bash
+verify-nys drive pwa-install
+```
 
-- `verify-nys doctor` passes (or any server on `$BASE_URL`).
-
-- **Manifest.** `curl -fsS $BASE_URL/manifest.webmanifest` → JSON `display:"standalone"`, `start_url:"/"`, `name` contains `agent`.
-- **HEAD probe.** `curl -fsSI $BASE_URL/manifest.webmanifest` → `200` (install checks use HEAD).
-- **Service worker.** `curl -fsS $BASE_URL/sw.js` → contains `addEventListener("push"` and `showNotification`.
-- **Icon.** `curl -fsS $BASE_URL/icon-192.png | head -c 4 | xxd` → PNG magic `8950 4e47`.
-- **Proof.** `verify-nys capture pwa-install manifest` or save manifest JSON under `evidence/pwa-install/<run-id>/`.
+Fetches `/manifest.webmanifest` (GET + HEAD), `/sw.js` (push handler + `showNotification`), `/icon-192.png` (PNG magic). Writes artifacts under `evidence/pwa-install/<run-id>/` plus **`proof.html`**.
 
 ## Gotchas
 
-- Web Push delivery is **not** proven by manifest/SW fetch — see **notify** / `POST /api/push/test` (needs VAPID).
-- iPhone requires Add to Home Screen before push; UI shows **add to home** in Safari tab.
+- Web Push delivery is **not** proven by manifest/SW fetch — see [Push notifications](./push-notifications.md) (`push-notify`, needs VAPID).
 - `VAPID_SUBJECT` must not use `@localhost` (Safari rejects with `403 BadJwtToken`).

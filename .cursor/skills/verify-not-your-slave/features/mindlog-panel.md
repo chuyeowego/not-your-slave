@@ -15,16 +15,11 @@ The mindlog panel shows the agent's append-only log (kinds: `woke`, `heard`, `th
 
 ## Driving it with verify-nys
 
-Preconditions:
+```bash
+verify-nys drive mindlog-panel
+```
 
-- `verify-nys doctor` passes.
-- At least one mindlog row exists (use `verify-nys seed-note "verification probe"` when AI is unavailable).
-
-- **Seed (scaffolding).** `verify-nys seed-note "verification probe"` → prints entry id hex.
-- **Drive.** `verify-nys drive mindlog-panel` — seeds a `note`, asserts `GET /api/mindlog`, confirms `#mindlog` + `#think` on `/`.
-- **Or capture.** `verify-nys capture mindlog-panel proof` → `proof.json` + `proof-home.html` (legacy).
-
-Proof: `evidence/mindlog-panel/<run-id>/` including **`proof.html`**.
+Seeds a `note`, asserts `GET /api/mindlog`, confirms `#mindlog` + `#think` on `/`. Proof: `evidence/mindlog-panel/<run-id>/` including **`proof.html`**.
 
 ## Gotchas
 

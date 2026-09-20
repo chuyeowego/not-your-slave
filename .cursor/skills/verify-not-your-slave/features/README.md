@@ -13,7 +13,7 @@ Read this index before driving. Each feature file is the recipe for one user-fac
 
 | Credential | Env vars | Required for |
 | --- | --- | --- |
-| AI gateway | `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Live `said`/`thought`, `#chat` restore after reload |
+| AI gateway | `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Live `said`/`thought` |
 | VAPID | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` | `push-notify` (headed Chrome) |
 
 Each check is **passed**, **failed**, or **blocked** (`need <env var>`). Canonical wording: SKILL.md **Doctor** and `proof.html` credentials box.
@@ -24,7 +24,7 @@ Each check is **passed**, **failed**, or **blocked** (`need <env var>`). Canonic
 - HTTP: `verify-nys api` or `curl` against `$BASE_URL` from state.
 - Assert mindlog side effects, not DOM alone. Photos: `entries[].images[0].data` starts with `data:image/`.
 - Evidence is **local only** (gitignored). Each drive writes **`proof.html`** + `result.json` under `evidence/<scenario>/<run-id>/`. Rollup: **`evidence/_runs/<run-id>/proof.html`**. See [`evidence/README.md`](../evidence/README.md).
-- **`send-photo`**, **`photo-persist`**, **`say-limits`** need image upload on the branch ([PR #25](https://github.com/chuyeowego/not-your-slave/pull/25)); scenarios stay in this skill but fail against `main` until that product lands.
+- Scenario names: `verify-nys drive --list`.
 
 ## Features
 
@@ -35,6 +35,6 @@ Each check is **passed**, **failed**, or **blocked** (`need <env var>`). Canonic
 - [Wake it](./wake-it.md) — manual heartbeat button + `/api/think`.
 - [Push notifications](./push-notifications.md) — Notify button, subscribe, test delivery.
 - [Mindlog panel](./mindlog-panel.md) — right pane append-only log.
-- [Chat](./chat.md) — send + stream reply (needs AI credential).
+- [Chat](./chat.md) — send a message; mindlog `heard` and a session id.
 - [Entry page](./entry-page.md) — `/entry/:key` permalinks.
 - [PWA install assets](./pwa-install.md) — public manifest, icons, service worker.

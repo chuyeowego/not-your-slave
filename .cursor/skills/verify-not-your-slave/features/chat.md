@@ -5,7 +5,6 @@ Chat lets a user type in the left-hand composer and send a message to the persis
 ## Sub-features
 
 - `chat-send` submits non-empty text via **Send** or Cmd/Ctrl+Enter.
-- `chat-stream` attaches to `/eve/v1/session/<id>/stream` after first send.
 - `chat-reject-empty` ignores blank submits.
 
 ## How to get to it (user POV)
@@ -16,14 +15,11 @@ Chat lets a user type in the left-hand composer and send a message to the persis
 
 ## Driving it with verify-nys
 
-Preconditions:
+```bash
+verify-nys drive chat
+```
 
-- `verify-nys doctor` passes.
-- `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` in `.env.local` or `.env` (otherwise agent `said` checks are blocked).
-
-- **Load page.** `curl -fsS $BASE_URL/` → HTML contains `id="input"` and button text `Send`.
-- **Drive.** `verify-nys drive chat` — `POST /api/say`, poll mindlog for `heard`, assert `/api/session` has `sessionId`.
-- **Or API manually.** `verify-nys api POST /api/say '{"message":"hello"}'` + poll `/api/mindlog`.
+`POST /api/say`, poll mindlog for `heard`, assert `/api/session` has `sessionId`. Agent `said` is not in this scenario — that is AI-gated on `wake-it`.
 
 Proof: `evidence/chat/<run-id>/` including **`proof.html`**.
 

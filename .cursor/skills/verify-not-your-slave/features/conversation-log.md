@@ -1,6 +1,6 @@
 # Conversation log
 
-The left `#chat` pane is the user-facing conversation log. It paints `heard` / `said` / `woke` rows from `/api/mindlog` (not the live event stream) and streams in-progress replies via `/eve/v1/session/.../stream`.
+The left `#chat` pane is the user-facing conversation log. It paints `heard` / `said` / `woke` rows from `/api/mindlog` (not the live event stream).
 
 ## Sub-features
 
@@ -21,9 +21,9 @@ Preconditions: `doctor` passes.
 verify-nys drive conversation-log
 ```
 
-- Sends a unique marker via `POST /api/say`.
+- Sends a unique marker by typing into `#input` and clicking **Send**.
 - Waits for a `heard` mindlog entry with that text.
-- Opens the page in headless Chrome; asserts `#chat .msg.me` contains the marker.
+- Asserts `#chat .msg.me` contains the marker.
 - Captures `conversation-log.png` + `result.json`.
 
 Proof: `heard` in `/api/mindlog` **and** matching text in `#chat .msg.me`.

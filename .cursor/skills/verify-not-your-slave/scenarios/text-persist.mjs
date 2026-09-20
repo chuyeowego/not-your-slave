@@ -25,6 +25,11 @@ export async function run(ctx) {
       `(async () => (await (await fetch("/api/session")).json()).sessionId)()`,
     );
     ctx.note("sessionIdBeforeReload", sessionBefore);
+    ctx.check(
+      "GET /api/session has id after send",
+      sessionBefore !== null && sessionBefore !== undefined,
+      sessionBefore ?? "null",
+    );
 
     await page.evaluate("location.reload()");
     await page.waitFor('!!document.getElementById("mindlog")', { label: "page after reload" });
@@ -35,15 +40,11 @@ export async function run(ctx) {
     );
     ctx.check("mindlog pane shows text after reload", inMindlogPane.ok, inMindlogPane.ok ? "" : inMindlogPane.detail);
 
-    if (!ctx.hasAi()) {
-      ctx.blocked("conversation log restores text after reload", ctx.needAi);
-    } else {
-      const inChat = await page.waitForOptional(
-        `Array.from(document.querySelectorAll("#chat .msg.me .body")).some((el) => el.textContent.includes(${JSON.stringify(MARKER)}))`,
-        { label: "text in conversation log after reload", timeoutMs: 45000 },
-      );
-      ctx.check("conversation log restores text after reload", inChat.ok, inChat.ok ? "" : inChat.detail);
-    }
+    const inChat = await page.waitForOptional(
+      `Array.from(document.querySelectorAll("#chat .msg.me .body")).some((el) => el.textContent.includes(${JSON.stringify(MARKER)}))`,
+      { label: "text in conversation log after reload", timeoutMs: 45000 },
+    );
+    ctx.check("conversation log restores text after reload", inChat.ok, inChat.ok ? "" : inChat.detail);
 
     const sessionAfter = await page.evaluate(
       `(async () => (await (await fetch("/api/session")).json()).sessionId)()`,

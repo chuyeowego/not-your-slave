@@ -53,11 +53,8 @@ export function normalizeCheck(check) {
       need: check.need ?? "",
     };
   }
-  const label = String(check.label ?? "")
-    .replace(/ \(tier [AB]\+?\)/gi, "")
-    .replace(/^tier A: /i, "");
   return {
-    label,
+    label: String(check.label ?? ""),
     status: check.passed ? "pass" : "fail",
     detail: check.detail ?? "",
     need: check.need ?? "",
@@ -77,7 +74,7 @@ function credentialsHtml(credentials = {}) {
   const vapid = credentials.vapid === "present" ? "present" : "absent";
   return `<div class="credentials"><strong>Credentials</strong> (from doctor — not a grade)
 <dl>
-  <dt>AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN</dt><dd>${esc(ai)} — required for live model replies, #chat restore after reload, and agent <code>said</code> after wake</dd>
+  <dt>AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN</dt><dd>${esc(ai)} — required for live model replies and agent <code>said</code>/<code>thought</code></dd>
   <dt>VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY</dt><dd>${esc(vapid)} — required for <code>push-notify</code> (headed Chrome)</dd>
 </dl>
 <p>Each check is <strong>passed</strong>, <strong>failed</strong>, or <strong>blocked</strong> (missing credential — set the env var and re-run).</p></div>`;
@@ -177,28 +174,6 @@ function scenarioSection({ scenario, runId, checks, meta }) {
 </section>`;
 }
 
-export async function writeRunProof({ evidenceRoot, runId, credentials, sections }) {
-  const runDir = join(evidenceRoot, "_runs", runId);
-  await mkdir(runDir, { recursive: true });
-  const indexPath = join(runDir, "proof.html");
-  const body = sections.map((s) => scenarioSection(s)).join("\n");
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <title>verify-nys ${esc(runId)}</title>
-  <style>${PROOF_STYLES}</style>
-</head>
-<body>
-  <h1>Verification run: ${esc(runId)}</h1>
-  ${credentialsHtml(credentials)}
-  ${body}
-</body>
-</html>`;
-  await writeFile(indexPath, html);
-  return indexPath;
-}
-
 export async function appendRunProof({ evidenceRoot, runId, scenario, credentials, checks, meta }) {
   const runDir = join(evidenceRoot, "_runs", runId);
   await mkdir(runDir, { recursive: true });
@@ -223,42 +198,4 @@ ${section}</body></html>`;
   }
   await writeFile(indexPath, body);
   return indexPath;
-}
-
-/** Rebuild rollup + scenario proof.html from existing result.json. */
-export async function rebuildRunProof(evidenceRoot, runId, credentials = {}) {
-  const entries = await readdir(evidenceRoot, { withFileTypes: true });
-  const sections = [];
-  let creds = credentials;
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name === "_runs") continue;
-    const scenario = entry.name;
-    const resultPath = join(evidenceRoot, scenario, runId, "result.json");
-    try {
-      const result = JSON.parse(await readFile(resultPath, "utf8"));
-      if (!creds.ai && result.credentials) creds = result.credentials;
-      const checks = (result.checks ?? []).map(normalizeCheck);
-      const outDir = join(evidenceRoot, scenario, runId);
-      await writeScenarioProof({
-        scenario: result.scenario ?? scenario,
-        runId,
-        baseUrl: result.baseUrl,
-        credentials: result.credentials ?? creds,
-        checks,
-        meta: result.meta ?? {},
-        outDir,
-        driven: result.meta?.driven ?? `verify-nys drive ${scenario}`,
-      });
-      sections.push({
-        scenario: result.scenario ?? scenario,
-        runId,
-        checks,
-        meta: result.meta ?? {},
-      });
-    } catch {
-      // no result for this scenario in this run
-    }
-  }
-  if (sections.length === 0) return null;
-  return writeRunProof({ evidenceRoot, runId, credentials: creds, sections });
 }
