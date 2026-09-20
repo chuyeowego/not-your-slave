@@ -21,6 +21,7 @@ export class IsolatedMindlog {
     delete process.env.DATABASE_URL;
     delete process.env.POSTGRES_URL;
     vi.stubEnv("MINDLOG_FILE", file);
+    vi.stubEnv("NOTES_FILE", join(dir, "notes.jsonl"));
     vi.stubEnv("PUSH_FILE", join(dir, "push.jsonl"));
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
