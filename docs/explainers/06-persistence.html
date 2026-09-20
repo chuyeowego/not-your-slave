@@ -161,7 +161,7 @@ th { font-family: "JetBrains Mono", monospace; font-size: .66rem; letter-spacing
 
 <div class="callout aside">
   <span class="label">After these six commits</span>
-  <p>This page walks commit <code>054ea75</code>. The running tree is one TIMELINE session (chat and cron share it, so <code>/workspace</code> persists), <code>agent/hooks/mindlog-in-sandbox.ts</code>, and optional <code>DATABASE_URL</code> — not the tarball sync this commit added.</p>
+  <p>This page walks commit <code>054ea75</code>. The running tree is one TIMELINE session (chat and cron share it, so <code>/workspace</code> persists), <code>agent/hooks/mindlog-in-sandbox.ts</code>, and optional <code>DATABASE_URL</code> — not the tarball sync this commit added. The live hook copies ~2000 entries <code>withoutImages</code> at <code>turn.started</code> and <code>stop()</code>s a completed sandbox — not whole-file <code>refreshMindlogCopy</code> or last-write-wins.</p>
 </div>
 
 <nav class="toc">
@@ -281,12 +281,12 @@ ls: cannot access '/Users': No such file or directory</pre>
 
 <div class="callout aside">
   <span class="label">An asymmetry this exposed</span>
-  <p>The Wake it button and cron are not equivalent. The button posts to a channel address, so repeated presses reuse one long-lived session and its container - files survived between manual wakes even before this commit. Cron creates a new session each fire. Testing autonomy through the button would therefore have shown the gap as already fixed, which is exactly the sort of false green a production-mode test catches.</p>
+  <p>In this commit, the Wake it button and cron were not equivalent. The button posted to a channel address, so repeated presses reused one long-lived session and its container - files survived between manual wakes even before this commit. Cron created a new session each fire. Testing autonomy through the button would therefore have shown the gap as already fixed, which is exactly the sort of false green a production-mode test catches.</p>
 </div>
 
 <h4>What else was found while looking</h4>
 
-<p>Counting what is stored turned up something unrelated and worse: <code>.eve/.workflow-data/streams</code> had grown to <strong>2.6 GB</strong>, of which 2.57 GB belonged to one session - 31,435 chunks averaging 86 KB. The cause is the cumulative-delta design from commit 5: every <code>message.appended</code> stores the whole message so far, so a long reply is persisted repeatedly at growing length. It is framework behaviour, not a bug in this code, and it is almost certainly what OOM-killed the dev server earlier in the session at a 4 GB heap. The practical consequence is that wiping <code>.eve/</code> becomes routine - which is precisely why it matters that the mindlog and the workspace archive live somewhere else.</p>
+<p>Counting what is stored turned up something unrelated and worse: <code>.eve/.workflow-data/streams</code> had grown to <strong>2.6 GB</strong>, of which 2.57 GB belonged to one session - 31,435 chunks averaging 86 KB. The cause is the cumulative-delta design from commit 5: every <code>message.appended</code> stores the whole message so far, so a long reply is persisted repeatedly at growing length. It is framework behaviour, not a bug in this code, and it is almost certainly what OOM-killed the dev server earlier in the session at a 4 GB heap. The practical consequence is that wiping <code>.eve/</code> becomes routine - which is precisely why it mattered that the mindlog and the workspace archive lived somewhere else.</p>
 
 <h2 id="code">The code</h2>
 
@@ -339,14 +339,14 @@ async function restore(sandbox: SandboxSession): Promise&lt;string&gt; {
   },
 });</pre>
 
-<p>Four events. The pair of snapshot points is deliberate: <code>session.waiting</code> fires whenever a turn parks, which is the common case and catches work as soon as it is done, while <code>session.completed</code> catches a session that ends without parking - a task-mode heartbeat, for instance.</p>
+<p>Four events, in this commit. The pair of snapshot points was deliberate: <code>session.waiting</code> fired whenever a turn parked, which was the common case and caught work as soon as it was done, while <code>session.completed</code> caught a session that ended without parking - a task-mode heartbeat, for instance.</p>
 
 <div class="callout warn">
   <span class="label">The ceiling, named in the source</span>
   <pre style="margin-top:.6rem">// ponytail: one tarball, last-write-wins. The chat session and a heartbeat both
 // snapshot to the same path, so whoever parks last wins. Per-session tarballs
 // or a real file-level sync if that ever costs anything.</pre>
-  <p style="margin-top:.6rem">Two sessions parking simultaneously means the later one overwrites. At one user and a quarter-hourly heartbeat the window is small; the note exists so the next person does not have to rediscover it in a debugger.</p>
+  <p style="margin-top:.6rem">This commit: two sessions parking simultaneously meant the later one overwrote. At one user and a quarter-hourly heartbeat the window was small; the note existed so the next person did not have to rediscover it in a debugger.</p>
 </div>
 
 <h3>Reading its own memory</h3>
@@ -357,7 +357,7 @@ async function restore(sandbox: SandboxSession): Promise&lt;string&gt; {
   await sandbox.writeTextFile({ path: MINDLOG_COPY, content: text });
 }</pre>
 
-<p>Five lines for gap 2. The copy is refreshed at the start of every turn, so <code>grep</code>, <code>jq</code>, <code>wc</code> and any script the agent writes can work over its own history. It is read-only in effect rather than by permission: appends still go through <code>mindlog_append</code>, so a script editing the copy changes nothing durable. Verified from inside the container - <code>wc -l</code> reported 89 lines, <code>grep -c woke</code> reported 5.</p>
+<p>Five lines for gap 2. This commit copied the whole host file at the start of every turn, so <code>grep</code>, <code>jq</code>, <code>wc</code> and any script the agent wrote could work over its own history. It was read-only in effect rather than by permission: appends still went through <code>mindlog_append</code>, so a script editing the copy changed nothing durable. Verified from inside the container - <code>wc -l</code> reported 89 lines, <code>grep -c woke</code> reported 5.</p>
 
 <h3>And search</h3>
 
@@ -392,10 +392,10 @@ async function restore(sandbox: SandboxSession): Promise&lt;string&gt; {
     <div class="fb"></div>
   </div>
 
-  <div class="q" data-answer="a" data-explain="The button posts to a channel address, so repeated presses reuse one long-lived session and its container - files survived manual wakes even before the fix. Only cron creates a new session per fire.">
+  <div class="q" data-answer="a" data-explain="In this commit the button posted to a channel address, so repeated presses reused one long-lived session and its container - files survived manual wakes even before the fix. Only cron created a new session per fire.">
     <span class="n">Question 3</span>
     <p class="ask">Why would testing this feature through the Wake it button have produced a false pass?</p>
-    <button class="opt" data-key="a">Because the button reuses one long-lived session and container, so files already survived between manual wakes.</button>
+    <button class="opt" data-key="a">Because, in this commit, the button reused one long-lived session and container, so files already survived between manual wakes.</button>
     <button class="opt" data-key="b">Because the button skips the hook, so nothing is snapshotted.</button>
     <button class="opt" data-key="c">Because dev mode disables sandboxes entirely.</button>
     <button class="opt" data-key="d">Because the button sends a paraphrase of the heartbeat prompt.</button>
