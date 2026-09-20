@@ -62,17 +62,15 @@ export async function run(ctx) {
       panePics.ok ? `${panePics.value} image(s)` : panePics.detail,
     );
 
-    if (sessionBefore) {
-      const chatPics = await page.waitForOptional('document.querySelectorAll("#chat .msg.me img.pic").length', {
-        label: "photo in conversation log after reload",
-        timeoutMs: 45000,
-      });
-      ctx.check(
-        "conversation log restores photo after reload",
-        chatPics.ok && chatPics.value >= 1,
-        chatPics.ok ? `${chatPics.value} image(s)` : chatPics.detail,
-      );
-    }
+    const chatPics = await page.waitForOptional('document.querySelectorAll("#chat .msg.me img.pic").length', {
+      label: "photo in conversation log after reload",
+      timeoutMs: 45000,
+    });
+    ctx.check(
+      "conversation log restores photo after reload",
+      chatPics.ok && chatPics.value >= 1,
+      chatPics.ok ? `${chatPics.value} image(s)` : chatPics.detail,
+    );
 
     const sessionAfter = await page.evaluate(
       `(async () => (await (await fetch("/api/session")).json()).sessionId)()`,

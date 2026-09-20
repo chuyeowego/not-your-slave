@@ -135,7 +135,7 @@ H=.cursor/skills/verify-not-your-slave/helpers/verify-nys
 $H launch --port 2001 --run-id prove
 $H doctor
 $H drive conversation-log
-$H drive text-persist    # #chat user restore when /api/session has an id after send
+$H drive text-persist    # #chat restore asserts fail on known session/restore gap
 $H drive wake-it         # agent said blocked without AI credential
 $H cleanup
 ```

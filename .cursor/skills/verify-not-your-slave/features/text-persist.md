@@ -21,13 +21,15 @@ verify-nys drive text-persist
 - Types a unique marker, clicks the real submit button.
 - Screenshots before/after reload; records `sessionId` before and after reload in `result.json` meta.
 - `location.reload()`; soft-waits for mindlog pane and `#chat` — **timeouts record FAIL and the scenario continues**.
-- `#chat` user restore is asserted when `/api/session` has an id after send (`restore()` from mindlog — not AI-gated).
+- `#chat` user restore is always asserted after reload (`restore()` from mindlog — not AI-gated). Records **fail** when `#chat` stays empty.
+- Asserts `GET /api/session` has an id after send (separate check — fails on known product gap).
 - Asserts `heard` in `/api/mindlog`.
 
 Proof: `before-reload.png`, `after-reload.png`, `result.json`, **`proof.html`**. Rollup: `evidence/_runs/<run-id>/proof.html`.
 
 ## Gotchas
 
+- **Product gap (known):** `GET /api/session` stays null after send on `main`, so `restore()` never runs and `#chat` stays empty after reload. Scenario records **fail** (not blocked) — do not mark `#chat` restore as passed when only the mindlog pane recovers.
 - `#chat` user restore is `restore()` from `/api/mindlog` spoken rows once `/api/session` has an id. AI is not on that path — gate AI only for agent `said`/`thought`.
 - `sessionId` null at `doctor` before any send is normal.
 - Right-pane mindlog reload works without a session (polls `/api/mindlog`).

@@ -23,12 +23,13 @@ Uses `lib/fixtures.mjs` `pngFixture()` written to the evidence dir (no binary in
 - Attaches via `DOM.setFileInputFiles` on `#files`.
 - Sends with caption; asserts `img.pic` before reload.
 - Asserts mindlog `heard.images[0].data` is inline base64.
-- Reloads; asserts `#mindlog img.pic`. Asserts `#chat .msg.me img.pic` when `/api/session` has an id after send (`restore()` from mindlog — not AI-gated).
+- Reloads; asserts `#mindlog img.pic` and `#chat .msg.me img.pic` (always asserted — records **fail** when `#chat` does not restore).
 
 Proof: `before-reload.png`, `after-reload.png`, `result.json`, **`proof.html`**.
 
 ## Gotchas
 
+- Same `#chat` restore product gap as `text-persist` — `GET /api/session` null after send blocks `restore()` on `main`; check records **fail**, not blocked.
 - `#chat` user restore is `restore()` from `/api/mindlog` spoken rows once `/api/session` has an id. AI is not on that path — gate AI only for agent `said`/`thought`.
 - Blob URLs on first paint are not persistence proof — always assert `/api/mindlog` and post-reload DOM.
 - Images over 3 MiB degrade to path references — stay under `SAY.maxBytes`.

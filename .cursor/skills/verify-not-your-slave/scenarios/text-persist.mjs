@@ -40,13 +40,11 @@ export async function run(ctx) {
     );
     ctx.check("mindlog pane shows text after reload", inMindlogPane.ok, inMindlogPane.ok ? "" : inMindlogPane.detail);
 
-    if (sessionBefore) {
-      const inChat = await page.waitForOptional(
-        `Array.from(document.querySelectorAll("#chat .msg.me .body")).some((el) => el.textContent.includes(${JSON.stringify(MARKER)}))`,
-        { label: "text in conversation log after reload", timeoutMs: 45000 },
-      );
-      ctx.check("conversation log restores text after reload", inChat.ok, inChat.ok ? "" : inChat.detail);
-    }
+    const inChat = await page.waitForOptional(
+      `Array.from(document.querySelectorAll("#chat .msg.me .body")).some((el) => el.textContent.includes(${JSON.stringify(MARKER)}))`,
+      { label: "text in conversation log after reload", timeoutMs: 45000 },
+    );
+    ctx.check("conversation log restores text after reload", inChat.ok, inChat.ok ? "" : inChat.detail);
 
     const sessionAfter = await page.evaluate(
       `(async () => (await (await fetch("/api/session")).json()).sessionId)()`,
