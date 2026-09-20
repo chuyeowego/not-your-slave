@@ -10,9 +10,6 @@ export default defineTool({
     name: noteNameSchema.describe("The page name, for example 'scratch' or 'projects/trip'."),
     body: noteBodySchema.describe("The full text of the page."),
   }),
-  label: {
-    start: ({ name }) => `Write note ${name}`,
-  },
   async execute({ name, body }) {
     const note = await write(name, body);
     return { ok: true, note };

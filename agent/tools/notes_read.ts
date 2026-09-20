@@ -9,9 +9,6 @@ export default defineTool({
   inputSchema: z.object({
     name: noteNameSchema.describe("The page name, for example 'scratch' or 'projects/trip'."),
   }),
-  label: {
-    start: ({ name }) => `Read note ${name}`,
-  },
   async execute({ name }) {
     const note = await read(name);
     return note === null ? { ok: false as const, error: "missing", name } : { ok: true as const, note };
