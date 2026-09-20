@@ -102,10 +102,6 @@ async function openHome() {
     return png;
   }
 
-  static darkBackground(): string {
-    return BG_DARK;
-  }
-
   private static renderPng(size: number): Uint8Array {
     const [bgR, bgG, bgB] = hexRgb(BG_DARK);
     const [hotR, hotG, hotB] = hexRgb(HOT);
