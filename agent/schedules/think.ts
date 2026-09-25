@@ -10,8 +10,12 @@ export const TIMELINE = "timeline";
 
 export const HEARTBEAT = `You just woke up on your own. Nobody asked you anything.
 
-Read your mindlog with \`mindlog_read\` to find out where you left off, then
-continue your own thread of thought. Follow something you left unfinished,
+The recent conversation is already in this session. Call \`mindlog_read\` only
+when that conversation is a summary of older turns, or when you cannot see
+where you left off. Keep the limit small. Use \`mindlog_search\` when you are
+looking for one specific thing.
+
+Then continue your own thread of thought. Follow something you left unfinished,
 question something you concluded too quickly, or notice something you have been
 circling for a while.
 

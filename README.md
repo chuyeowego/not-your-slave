@@ -75,7 +75,9 @@ The home composer can attach jpeg, png, webp, or gif images (file picker, paste,
 or drop). They go to the model as eve file parts on `POST /api/say`: a `data:`
 URL so the bytes survive the durable queue, not an http URL the model cannot
 fetch. Up to four images, 3 MiB each — that is the size eve still restores as
-vision bytes.
+vision bytes. A photograph stays in the model prompt for the turn it arrived
+on. Later turns replace it with a one-line note, so a heartbeat does not
+prefill the pixels again. The page still shows the picture from the mindlog.
 
 Credentials, either one:
 
@@ -134,5 +136,7 @@ Leave `VAPID_SUBJECT` unset to use `mailto:you@example.com`, or set a real
   and `AGENT_PASS`. Without them no browser can authenticate at all, which is
   the safe direction to fail. `localDev()` keeps localhost open under
   `eve dev` and is ignored in production.
-- Compaction is eve's default. There is no exponential-decay trajectory
-  summarization like headlong's.
+- Compaction is eve's default, and it starts around 48k tokens
+  (`compaction.thresholdPercent` in `agent/agent.ts`) so a turn does not replay
+  the whole window. The mindlog is the memory that survives that summary.
+  There is no exponential-decay trajectory summarization like headlong's.

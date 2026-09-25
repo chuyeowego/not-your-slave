@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { THOUGHT_TEXT_MAX } from "#lib/mindlog.ts";
+
 import { IsolatedMindlog, type MindlogApi } from "./helpers/isolated-mindlog.ts";
 
 type HookEvents = Record<string, (event: unknown, ctx: unknown) => unknown>;
@@ -103,6 +105,16 @@ describe("mindlog capture hook", () => {
   test("reasoning lands as thought", async () => {
     await fire("reasoning.completed", { reasoning: "maybe the log is enough" });
     expect((await read())[0]).toMatchObject({ kind: "thought", text: "maybe the log is enough" });
+  });
+
+  test("a long reasoning trace keeps its start and its end", async () => {
+    const reasoning = `${"start ".repeat(80)}and this is the conclusion`;
+    await fire("reasoning.completed", { reasoning });
+    const text = (await read())[0]?.text ?? "";
+    expect(text.length).toBeLessThanOrEqual(THOUGHT_TEXT_MAX);
+    expect(text.startsWith("start")).toBe(true);
+    expect(text.endsWith("and this is the conclusion")).toBe(true);
+    expect(text).toContain(" … ");
   });
 
   test("a null completed message is not logged", async () => {
