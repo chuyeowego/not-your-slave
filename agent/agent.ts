@@ -85,16 +85,57 @@ const promptForVision = (prompt: unknown): unknown => {
   });
 };
 
+const currentTurnStart = (prompt: unknown[]): number => {
+  for (let index = prompt.length - 1; index >= 0; index--) {
+    const message = prompt[index];
+    if (isRecord(message) && message.role === "user") return index;
+  }
+  return prompt.length;
+};
+
+const imageCaption = (part: unknown): string => {
+  if (!isRecord(part)) return "[photograph already seen]";
+  const item = part as ContentPart;
+  const rawName = typeof item.filename === "string" ? item.filename.split("/").pop() : undefined;
+  const name = rawName !== undefined && rawName.length > 0 ? rawName : undefined;
+  const media = typeof item.mediaType === "string" ? item.mediaType : "image";
+  return name !== undefined ? `[photograph already seen: ${name} (${media})]` : `[photograph already seen (${media})]`;
+};
+
+const stripImages = (message: unknown): unknown => {
+  if (!isRecord(message) || !Array.isArray(message.content) || !contentHasImage(message.content)) return message;
+  return {
+    ...message,
+    content: message.content.flatMap((part) => (isImagePart(part) ? [{ type: "text", text: imageCaption(part) }] : [part])),
+  };
+};
+
+// Pixels stay for the turn that received them. Later turns pay for a line of
+// text. The page still has the picture, on the mindlog entry.
+const omitStaleImages = (prompt: unknown): unknown => {
+  if (!Array.isArray(prompt)) return prompt;
+  const start = currentTurnStart(prompt);
+  let changed = false;
+  const next = prompt.map((message, index) => {
+    if (index >= start) return message;
+    const stripped = stripImages(message);
+    if (stripped !== message) changed = true;
+    return stripped;
+  });
+  return changed ? next : prompt;
+};
+
 export const capOutputTokens: LanguageModelMiddleware = {
   transformParams: async ({ params }) => {
     const gatewayOptions =
       params.providerOptions?.gateway !== null && typeof params.providerOptions?.gateway === "object"
         ? params.providerOptions.gateway
         : {};
-    const hasImage = promptHasImage(params.prompt);
+    const prompt = promptForVision(omitStaleImages(params.prompt));
+    const hasImage = promptHasImage(prompt);
     return {
       ...params,
-      prompt: hasImage ? (promptForVision(params.prompt) as typeof params.prompt) : params.prompt,
+      prompt: prompt as typeof params.prompt,
       maxOutputTokens: Math.min(params.maxOutputTokens ?? CAP, CAP),
       ...(hasImage
         ? {
@@ -119,6 +160,12 @@ export default defineAgent({
   // The wrapper hides the model id from eve's catalog lookup ("gateway/…"), so
   // the window is stated here. Catalog value for this model, not a guess.
   modelContextWindowTokens: 1_000_000,
+  // Replay a working set, not the whole window. 0.048 of 1M is about 48k
+  // tokens; eve also reserves the checkpoint prompt, so summarization starts
+  // a little earlier. The mindlog is what survives that summary.
+  compaction: {
+    thresholdPercent: 0.048,
+  },
   reasoning: "medium",
   // The heartbeat lives in one session forever, so every per-session ceiling
   // has to be off: a 30-day timeout would retire it, and the token budgets

@@ -1,6 +1,6 @@
 import { defineHook } from "eve/hooks";
 
-import { append, imagesFromParts } from "../lib/mindlog";
+import { append, clipThought, imagesFromParts } from "../lib/mindlog";
 import { Push } from "../lib/push";
 import { HEARTBEAT } from "../schedules/think";
 
@@ -26,7 +26,7 @@ export default defineHook({
       });
     },
     async "reasoning.completed"(event, ctx) {
-      await append({ kind: "thought", text: event.data.reasoning, sessionId: ctx.session.id });
+      await append({ kind: "thought", text: clipThought(event.data.reasoning), sessionId: ctx.session.id });
     },
     "message.appended"(event) {
       streaming.set(event.data.turnId, event.data.messageSoFar);

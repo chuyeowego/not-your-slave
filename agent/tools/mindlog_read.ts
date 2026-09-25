@@ -1,15 +1,15 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 
-import { read, withoutImages } from "../lib/mindlog";
+import { forRecall, read } from "../lib/mindlog";
 
 export default defineTool({
   description:
-    "Read the most recent entries of your mindlog. This is how you remember what you were doing, thinking, and waiting on before this moment. Call it whenever you wake up with no context.",
+    "Read the most recent entries of your mindlog. Use this when the conversation in front of you is a summary of older turns, or when you cannot see where you left off. Skip it when the recent turns are already here.",
   inputSchema: z.object({
-    limit: z.number().int().min(1).max(200).default(40).describe("How many recent entries to read."),
+    limit: z.number().int().min(1).max(40).default(12).describe("How many recent entries to read."),
   }),
   async execute({ limit }) {
-    return { entries: (await read(limit)).map(withoutImages) };
+    return { entries: (await read(limit)).map(forRecall) };
   },
 });

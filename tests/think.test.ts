@@ -7,7 +7,7 @@ describe("think schedule", () => {
   test("exports the shared address and an hourly cron", () => {
     expect(TIMELINE).toBe("timeline");
     expect(think.cron).toBe("0 * * * *");
-    expect(HEARTBEAT).toContain("Read your mindlog with `mindlog_read`");
+    expect(HEARTBEAT).toContain("Call `mindlog_read` only");
     expect(HEARTBEAT).toContain("Nobody asked for this");
   });
 

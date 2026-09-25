@@ -28,6 +28,27 @@ export function withoutImages(entry: MindlogEntry): MindlogEntry {
   return rest;
 }
 
+/** Reasoning traces get reread into the transcript. Keep the start and the end. */
+export const THOUGHT_TEXT_MAX = 500;
+
+export function clipThought(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= THOUGHT_TEXT_MAX) return trimmed;
+  const mark = " … ";
+  const budget = THOUGHT_TEXT_MAX - mark.length;
+  const head = Math.ceil(budget * 0.6);
+  const tail = budget - head;
+  return `${trimmed.slice(0, head).trimEnd()}${mark}${trimmed.slice(-tail).trimStart()}`;
+}
+
+/** What a model call should see: no image bytes, and a short thought stub. */
+export function forRecall(entry: MindlogEntry): MindlogEntry {
+  const bare = withoutImages(entry);
+  if (bare.kind !== "thought") return bare;
+  const text = clipThought(bare.text);
+  return text === bare.text ? bare : { ...bare, text };
+}
+
 function imagesOf(value: unknown): MindlogImage[] | undefined {
   if (!Array.isArray(value) || value.length === 0) return undefined;
   const images: MindlogImage[] = [];

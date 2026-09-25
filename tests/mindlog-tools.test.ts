@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
-import type { MindlogEntry } from "#lib/mindlog.ts";
+import { THOUGHT_TEXT_MAX, type MindlogEntry } from "#lib/mindlog.ts";
 
 import { ToolSchema } from "./helpers/channel.ts";
 import { IsolatedMindlog, type MindlogApi } from "./helpers/isolated-mindlog.ts";
@@ -41,9 +41,10 @@ describe("mindlog tools", () => {
   test("mindlog_read returns the recent tail and validates limit", async () => {
     const tool = (await import("#tools/mindlog_read.ts")).default;
     const schema = ToolSchema.of(tool.inputSchema);
-    expect(schema.parse({})).toEqual({ limit: 40 });
+    expect(schema.parse({})).toEqual({ limit: 12 });
     expect(schema.safeParse({ limit: 0 }).success).toBe(false);
-    expect(schema.safeParse({ limit: 201 }).success).toBe(false);
+    expect(schema.safeParse({ limit: 40 }).success).toBe(true);
+    expect(schema.safeParse({ limit: 41 }).success).toBe(false);
 
     await append({ kind: "note", text: "a" });
     await append({ kind: "note", text: "b" });
@@ -87,5 +88,19 @@ describe("mindlog tools", () => {
     };
     expect(entries[0]?.text).toBe("(image)");
     expect(entries[0]?.images).toBeUndefined();
+  });
+
+  test("mindlog_read shortens a thought that was stored before the cap", async () => {
+    const tool = (await import("#tools/mindlog_read.ts")).default;
+    await append({ kind: "thought", text: `${"a".repeat(600)}conclusion` });
+    const { entries } = (await tool.execute({ limit: 10 }, ToolSession.ctx("ses_tool"))) as {
+      entries: MindlogEntry[];
+    };
+    const text = entries[0]?.text ?? "";
+    expect(text.length).toBeLessThanOrEqual(THOUGHT_TEXT_MAX);
+    expect(text.startsWith("a")).toBe(true);
+    expect(text.endsWith("conclusion")).toBe(true);
+    expect((await store.api.read())[0]?.text?.endsWith("conclusion")).toBe(true);
+    expect((await store.api.read())[0]?.text?.length).toBeGreaterThan(THOUGHT_TEXT_MAX);
   });
 });
